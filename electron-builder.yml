@@ -11,10 +11,6 @@ directories:
 files:
   - out/**/*
   - package.json
-  # better-sqlite3 自带 8 个平台的 N-API 预编译二进制（共 17MB），
-  # 打包时只留当前平台的，其余剔除（后一条 include 覆盖前一条 exclude）
-  - '!node_modules/better-sqlite3/prebuilds/**'
-  - node_modules/better-sqlite3/prebuilds/linux-x64.node
 
 # 原生模块必须解包到 asar 之外，否则 Electron 无法 dlopen
 asarUnpack:
@@ -24,28 +20,9 @@ asarUnpack:
 linux:
   target:
     - AppImage
-    - deb
   category: Utility
   icon: build/icon.png
   synopsis: 本地运行的 DeepSeek 桌面聊天助手
-  description: >-
-    本地运行的 DeepSeek 桌面聊天助手。数据全部留在本机，
-    API Key 经系统密钥链加密保存，支持 Markdown、代码高亮与思维链展示。
-  maintainer: phoeshow <phoeshow.me@gmail.com>
-  vendor: phoeshow
-  # 让 .desktop 文件名与 StartupWMClass / Electron 的 app_id 一致，
-  # 否则桌面环境无法把运行中的窗口关联到桌面项
-  syncDesktopName: true
-
-# Debian/Ubuntu 元数据。depends 保留 electron-builder 默认值（已覆盖 libgtk-3、
-# libnss3、libatspi2.0、xdg-utils 等 Electron 必需库）。libsecret-1-0 用于
-# safeStorage 走 gnome-keyring；缺失时应用降级为明文存储并告警。
-deb:
-  priority: optional
-  # 注意：Debian 的 Section 字段在 electron-builder 里叫 packageCategory，
-  # 而 category 指的是 freedesktop 应用分类，两者不要混用
-  packageCategory: utils
-  compression: xz
 
 mac:
   target: dmg

@@ -2,12 +2,8 @@
   "name": "my-deepseek-chat",
   "version": "1.0.0",
   "description": "本地运行的 DeepSeek 桌面聊天助手",
-  "homepage": "https://github.com/phoeshow/my-deepseek-chat",
   "main": "./out/main/index.js",
-  "author": {
-    "name": "phoeshow",
-    "email": "phoeshow.me@gmail.com"
-  },
+  "author": "phoeshow",
   "license": "MIT",
   "private": true,
   "packageManager": "pnpm@12.18.0",
@@ -24,7 +20,7 @@
     "e2e:ui": "bash scripts/run-e2e-ui.sh",
     "mock": "node scripts/mock-deepseek.mjs",
     "test:migrations": "esbuild scripts/test-migrations.ts --bundle --platform=node --format=cjs --alias:@shared=./src/shared --alias:@main=./src/main --external:better-sqlite3 --external:electron --outfile=out/smoke/test-migrations.cjs --log-level=warning && electron out/smoke/test-migrations.cjs",
-    "dist": "pnpm build && electron-builder --linux",
+    "dist": "pnpm build && electron-builder --linux AppImage",
     "dist:dir": "pnpm build && electron-builder --dir"
   },
   "dependencies": {
@@ -57,6 +53,5 @@
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
-  },
-  "desktopName": "my-deepseek-chat.desktop"
+  }
 }
