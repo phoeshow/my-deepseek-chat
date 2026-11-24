@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useChat } from '../store/chat'
 import { FontAwesomeIcon, Icon } from './icons'
+import { InfoTip } from './InfoTip'
 
 /**
  * 右栏参数面板（docs/04 §4.5/§4.6）。
@@ -69,9 +70,14 @@ export function ParamPanel({ width }: { width: number }): React.JSX.Element | nu
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <label htmlFor="temperature" className="text-ui text-fg-muted">
-              温度
-            </label>
+            <span className="flex items-center gap-1.5">
+              <label htmlFor="temperature" className="text-ui text-fg-muted">
+                温度
+              </label>
+              <InfoTip label="温度参数说明与官方推荐值">
+                <TemperatureHelp />
+              </InfoTip>
+            </span>
             <span className="font-mono text-micro text-fg">{temperature.toFixed(1)}</span>
           </div>
           <input
@@ -146,6 +152,41 @@ export function ParamPanel({ width }: { width: number }): React.JSX.Element | nu
         </section>
       </div>
     </aside>
+  )
+}
+
+/**
+ * 温度说明（docs/04 §4.5）。
+ * 取值来自 DeepSeek 官方「Temperature 设置」页，不是自定义经验值：
+ * 代码/数学 0.0、数据抽取分析 1.0、通用对话 1.3、翻译 1.3、创意写作 1.5。
+ * 另一个必须写清的点：思考模式下该参数不生效（传了不报错，但被忽略）。
+ */
+const TEMPERATURE_PRESETS: readonly [string, string][] = [
+  ['代码生成 / 数学解题', '0.0'],
+  ['数据抽取 / 分析', '1.0'],
+  ['通用对话', '1.3'],
+  ['翻译', '1.3'],
+  ['创意类写作 / 诗歌', '1.5']
+]
+
+function TemperatureHelp(): React.JSX.Element {
+  return (
+    <div>
+      <p className="font-medium text-fg">温度：0 – 2，默认 1.0</p>
+      <p className="mt-1 text-fg-muted">
+        越低越确定、越高越发散。官方建议只调温度或 top_p 其中之一。
+      </p>
+      <p className="mt-2 text-fg-subtle">DeepSeek 官方按场景推荐：</p>
+      <dl className="mt-1 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 font-mono">
+        {TEMPERATURE_PRESETS.map(([scene, value]) => (
+          <div key={scene} className="col-span-2 grid grid-cols-[1fr_auto] gap-x-3">
+            <dt className="font-sans text-fg-muted">{scene}</dt>
+            <dd className="text-fg">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-warn">思考模式开启时该参数不生效（不会报错，但被忽略）。</p>
+    </div>
   )
 }
 

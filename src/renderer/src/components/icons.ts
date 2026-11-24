@@ -10,6 +10,7 @@ import {
   faChevronRight,
   faCopy,
   faEllipsis,
+  faCircleInfo,
   faGear,
   faPlus,
   faRotateRight,
@@ -54,7 +55,9 @@ export const Icon = {
   regenerate: faRotateRight,
   // 选择态
   check: faCheck,
-  chevronDown: faChevronDown
+  chevronDown: faChevronDown,
+  // 说明性提示
+  info: faCircleInfo
 } as const
 
 export { FontAwesomeIcon }
