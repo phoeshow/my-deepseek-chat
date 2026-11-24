@@ -78,6 +78,25 @@ const evaluate = async (expression) => {
 
 const bodyText = () => evaluate('document.body.innerText')
 
+const VK = { b: 66, k: 75, n: 78, r: 82, comma: 188, period: 190, Escape: 27 }
+
+/** 发送一次真实按键（modifiers: 1=Alt, 2=Ctrl, 4=Meta） */
+async function pressKey(key, modifiers = 0) {
+  const code = key.length === 1 ? `Key${key.toUpperCase()}` : key
+  const vk = VK[key] ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0)
+  for (const type of ['keyDown', 'keyUp']) {
+    await client.send('Input.dispatchKeyEvent', {
+      type,
+      key: key === 'Escape' ? 'Escape' : key,
+      code: key === ',' ? 'Comma' : key === '.' ? 'Period' : code,
+      modifiers,
+      windowsVirtualKeyCode: vk,
+      nativeVirtualKeyCode: vk
+    })
+  }
+  await sleep(350)
+}
+
 /** 轮询等待某个表达式为真（流式/异步高亮后都用它） */
 async function waitFor(expression, timeoutMs = 15000) {
   const deadline = Date.now() + timeoutMs
@@ -316,7 +335,51 @@ const shot = await client.send('Page.captureScreenshot', { format: 'png' })
 await writeFile(SHOT_PATH, Buffer.from(shot.data, 'base64'))
 console.log(`截图 → ${SHOT_PATH}`)
 
-console.log('\n[13] 关闭按钮')
+console.log('\n[13] 分栏拖拽与宽度持久化')
+// 右栏参数面板也是 <aside>，所以必须用侧栏独有的标记来定位
+const sidebarWidth = () =>
+  evaluate(`parseInt(document.querySelector('aside:has([aria-label="折叠侧栏"])')?.style.width || '0', 10)`)
+const widthBefore = await sidebarWidth()
+check('左栏初始宽度可读', widthBefore >= 200 && widthBefore <= 320, widthBefore)
+
+await evaluate(`(() => {
+  const el = document.querySelector('[role="separator"]')
+  const rect = el.getBoundingClientRect()
+  const base = { bubbles: true, pointerId: 1, pointerType: 'mouse' }
+  el.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientX: rect.x + 1 }))
+  el.dispatchEvent(new PointerEvent('pointermove', { ...base, clientX: rect.x + 41 }))
+  el.dispatchEvent(new PointerEvent('pointerup', { ...base, clientX: rect.x + 41 }))
+  return true
+})()`)
+await sleep(700)
+const widthAfter = await sidebarWidth()
+check(`拖拽后宽度变化（${widthBefore} → ${widthAfter}）`, widthAfter > widthBefore, widthAfter)
+
+await client.send('Page.reload')
+await sleep(2500)
+check('重载后宽度已持久化', (await sidebarWidth()) === widthAfter, await sidebarWidth())
+
+console.log('\n[14] 快捷键')
+await pressKey('b', 2)
+check('Ctrl+B 折叠侧栏', await evaluate(`!document.querySelector('[aria-label="折叠侧栏"]')`))
+check('折叠后出现展开入口', await evaluate(`Boolean(document.querySelector('[aria-label="展开侧栏"]'))`))
+await pressKey('b', 2)
+check(
+  '再按 Ctrl+B 恢复侧栏',
+  await evaluate(`Boolean(document.querySelector('[aria-label="折叠侧栏"]'))`)
+)
+
+await pressKey('k', 2)
+check('Ctrl+K 打开快速切换', await evaluate(`Boolean(document.querySelector('[role="dialog"][aria-label="快速切换会话"]'))`))
+await pressKey('Escape')
+check('Esc 关闭快速切换', await evaluate(`!document.querySelector('[role="dialog"][aria-label="快速切换会话"]')`))
+
+await pressKey(',', 2)
+check('Ctrl+, 打开设置', await evaluate(`Boolean(document.querySelector('[role="dialog"][aria-label="设置"]'))`))
+await pressKey('Escape')
+check('Esc 关闭设置', await evaluate(`!document.querySelector('[role="dialog"][aria-label="设置"]')`))
+
+console.log('\n[15] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

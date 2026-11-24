@@ -10,6 +10,11 @@ import { applyCsp, createMainWindow, setAppIdentity } from './window'
 
 let handle: ReturnType<typeof createMainWindow> | null = null
 
+// 必须在 ready 之前固定名字：打包后的 app.getName() 会变成 productName，
+// 那样 userData 会从 ~/.config/my-deepseek-chat 变成 ~/.config/DeepSeek Chat，
+// 等于把开发期的数据孤立掉。
+app.setName('my-deepseek-chat')
+
 start()
 
 function start(): void {

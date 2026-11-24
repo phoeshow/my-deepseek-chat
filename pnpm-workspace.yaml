@@ -7,8 +7,10 @@ packages:
 #   better-sqlite3     → 原生模块（随后由 electron-rebuild 针对 Electron ABI 重建一次）
 #   esbuild            → vite 的打包器，安装期校验平台二进制
 #   @tailwindcss/oxide → Tailwind v4 的原生扫描器
+#   electron-winstaller → electron-builder 的 Windows 目标依赖，安装期选择 7-Zip 架构
 allowBuilds:
   electron: true
   better-sqlite3: true
   esbuild: true
   '@tailwindcss/oxide': true
+  electron-winstaller: true

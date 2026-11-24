@@ -140,6 +140,7 @@ export interface AppConfigPatch {
   defaultThinking?: boolean
   defaultEffort?: ReasoningEffort
   autoTitle?: boolean
+  baseUrl?: string
   window?: Partial<WindowState>
 }
 
@@ -196,6 +197,19 @@ export interface AppApi {
 
   settings: {
     update(patch: AppConfigPatch): Promise<Result<AppConfig>>
+  }
+
+  data: {
+    /** 单会话导出；返回 path 为 null 表示用户取消了保存 */
+    exportSession(
+      sessionId: string,
+      format: 'md' | 'json',
+      includeReasoning: boolean
+    ): Promise<Result<{ path: string | null; bytes: number }>>
+    exportAll(): Promise<Result<{ path: string | null; bytes: number }>>
+    openDataDir(): Promise<Result<{ opened: boolean }>>
+    /** 删除全部会话与消息，保留设置与 API Key */
+    clearConversations(): Promise<Result<{ deleted: number }>>
   }
 
   system: {

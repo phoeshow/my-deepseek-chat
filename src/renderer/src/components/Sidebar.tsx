@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import type { SessionSummary } from '@shared/types'
 import { useChat } from '../store/chat'
 
 interface Props {
+  width: number
   onOpenSettings: () => void
 }
 
-export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
+export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
   const sessions = useChat((state) => state.sessions)
   const activeId = useChat((state) => state.activeSessionId)
   const running = useChat((state) => state.run)
@@ -13,11 +15,16 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
   const selectSession = useChat((state) => state.selectSession)
   const removeSession = useChat((state) => state.removeSession)
   const renameSession = useChat((state) => state.renameSession)
+  const showNotice = useChat((state) => state.showNotice)
+  const patchConfig = useChat((state) => state.patchConfig)
+
   const [confirming, setConfirming] = useState<string | null>(null)
+  const [menuFor, setMenuFor] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
   const startRename = (id: string, title: string): void => {
+    setMenuFor(null)
     setEditingId(id)
     setDraft(title)
   }
@@ -31,14 +38,36 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
     await renameSession(id, title)
   }
 
+  const exportSession = async (session: SessionSummary): Promise<void> => {
+    setMenuFor(null)
+    const result = await window.api.data.exportSession(session.id, 'md', true)
+    if (!result.ok) {
+      showNotice(`导出失败：${result.message}`)
+      return
+    }
+    showNotice(result.data.path ? `已导出到 ${result.data.path}` : '已取消导出')
+  }
+
   return (
-    <aside className="flex w-[240px] shrink-0 flex-col border-r border-line bg-canvas">
-      {/* 品牌区已上提到 TitleBar（docs/04 §2.1），这里直接从新建按钮开始 */}
-      <div className="px-3 pt-3 pb-2">
+    <aside
+      className="flex shrink-0 flex-col border-r border-line bg-canvas"
+      style={{ width }}
+    >
+      <div className="flex h-12 shrink-0 items-center justify-between px-3">
+        <button
+          type="button"
+          onClick={() => void patchConfig({ window: { sidebarCollapsed: true } })}
+          className="rounded px-1.5 py-1 text-fg-subtle hover:text-fg"
+          aria-label="折叠侧栏"
+          title="折叠侧栏（Ctrl/⌘+B）"
+        >
+          «
+        </button>
         <button
           type="button"
           onClick={() => void createSession()}
-          className="w-full rounded-sm px-3 py-2 text-left text-ui text-fg-muted hover:bg-surface-hover hover:text-fg"
+          className="rounded-sm px-2 py-1 text-ui text-fg-muted hover:bg-surface-hover hover:text-fg"
+          title="新建会话（Ctrl/⌘+N）"
         >
           ＋ 新对话
         </button>
@@ -79,7 +108,7 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
                     onClick={() => void selectSession(session.id)}
                     onDoubleClick={() => startRename(session.id, session.title)}
                     title="双击重命名"
-                    className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-ui ${
+                    className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 pr-7 text-left text-ui ${
                       active
                         ? 'bg-accent-subtle text-fg'
                         : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
@@ -94,14 +123,37 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
                     )}
                   </button>
                 )}
+
+                {/* 会话操作收进一个 ⋯ 菜单：导出、重命名、删除，避免图标按钮堆一排 */}
                 <button
                   type="button"
-                  onClick={() => setConfirming(session.id)}
-                  className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded px-1.5 text-micro text-fg-subtle hover:text-danger group-hover:block"
-                  aria-label="删除会话"
+                  onClick={() => setMenuFor(menuFor === session.id ? null : session.id)}
+                  className="absolute right-1 top-1/2 hidden -translate-y-1/2 rounded px-1.5 text-micro text-fg-subtle hover:text-fg group-hover:block"
+                  aria-label="会话操作"
+                  aria-haspopup="menu"
+                  aria-expanded={menuFor === session.id}
                 >
-                  ×
+                  ⋯
                 </button>
+
+                {menuFor === session.id && (
+                  <div
+                    role="menu"
+                    className="absolute right-1 top-8 z-20 w-[150px] rounded-md border border-line bg-surface p-1 shadow-md"
+                  >
+                    <MenuItem onClick={() => void exportSession(session)}>导出 Markdown</MenuItem>
+                    <MenuItem onClick={() => startRename(session.id, session.title)}>重命名</MenuItem>
+                    <MenuItem
+                      tone="danger"
+                      onClick={() => {
+                        setMenuFor(null)
+                        setConfirming(session.id)
+                      }}
+                    >
+                      删除会话
+                    </MenuItem>
+                  </div>
+                )}
               </li>
             )
           })}
@@ -119,8 +171,13 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
       </div>
 
       {confirming && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30">
-          <div className="w-[320px] rounded-lg border border-line bg-surface p-4">
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="删除会话确认"
+            className="w-[320px] rounded-lg border border-line bg-surface p-4"
+          >
             <p className="text-body text-fg">删除这个会话？</p>
             <p className="mt-1 text-ui text-fg-muted">消息会一并删除，无法恢复。</p>
             <div className="mt-4 flex justify-end gap-2">
@@ -146,5 +203,28 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
         </div>
       )}
     </aside>
+  )
+}
+
+function MenuItem({
+  children,
+  onClick,
+  tone
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  tone?: 'danger'
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={`w-full rounded-sm px-3 py-1.5 text-left text-ui ${
+        tone === 'danger' ? 'text-danger hover:bg-surface-hover' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
+      }`}
+    >
+      {children}
+    </button>
   )
 }

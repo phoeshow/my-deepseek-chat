@@ -52,6 +52,14 @@ const api: AppApi = {
     update: (patch) => invoke('settings:update', { patch })
   },
 
+  data: {
+    exportSession: (sessionId, format, includeReasoning) =>
+      invoke('export:session', { sessionId, format, includeReasoning }),
+    exportAll: () => invoke('export:all'),
+    openDataDir: () => invoke('app:open-data-dir'),
+    clearConversations: () => invoke('app:clear-conversations')
+  },
+
   system: {
     openExternal: (url) => invoke('shell:open-external', { url })
   },

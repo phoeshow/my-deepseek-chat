@@ -1,0 +1,32 @@
+appId: com.phoeshow.mydeepseekchat
+# 显示名用于桌面条目；运行时的 app name 由 src/main/index.ts 里的 app.setName 固定为
+# my-deepseek-chat，保证 userData 路径在开发态与打包态一致。
+productName: DeepSeek Chat
+copyright: Copyright © 2026 phoeshow
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+# 原生模块必须解包到 asar 之外，否则 Electron 无法 dlopen
+asarUnpack:
+  - '**/*.node'
+  - node_modules/better-sqlite3/**
+
+linux:
+  target:
+    - AppImage
+  category: Utility
+  icon: build/icon.png
+  synopsis: 本地运行的 DeepSeek 桌面聊天助手
+
+mac:
+  target: dmg
+  category: public.app-category.productivity
+
+win:
+  target: nsis

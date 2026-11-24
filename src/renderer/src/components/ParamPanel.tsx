@@ -7,9 +7,7 @@ import { useChat } from '../store/chat'
  * 温度 / 最大输出 / 系统提示词都属于**会话级**设定，写入后对后续轮次生效。
  * 上下文预算与缓存命中来自最近一次请求的 usage，本会话累计则由已落库消息聚合。
  */
-export function ParamPanel(): React.JSX.Element | null {
-  const collapsed = useChat((state) => state.boot?.config.window.panelCollapsed ?? false)
-  const width = useChat((state) => state.boot?.config.window.panelWidth ?? 280)
+export function ParamPanel({ width }: { width: number }): React.JSX.Element | null {
   const session = useChat((state) => state.sessions.find((item) => item.id === state.activeSessionId))
   const models = useChat((state) => state.models)
   const messages = useChat((state) => state.messages)
@@ -41,8 +39,6 @@ export function ParamPanel(): React.JSX.Element | null {
       last && last.prompt > 0 && last.cacheHit !== undefined ? last.cacheHit / last.prompt : null
     return { used, usedContext, contextWindow, cacheRate }
   }, [messages, models, session?.modelId])
-
-  if (collapsed) return null
 
   const commitNumber = (raw: string, fallback: number | null): void => {
     const parsed = Number.parseFloat(raw)

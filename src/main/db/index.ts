@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '../logger'
 import { migrations } from './migrations'
-import type { SqliteDb } from './types'
+import type { Migration, SqliteDb } from './types'
 
 let instance: SqliteDb | null = null
 let recoveredOnBoot = 0
@@ -26,7 +26,7 @@ export function initDatabase(dataDir: string): SqliteDb {
   db.pragma('foreign_keys = ON')
   db.pragma('busy_timeout = 5000')
 
-  const applied = migrate(db)
+  const applied = applyMigrations(db)
 
   // 启动自愈（docs/03 §4.3）：任何残留的 streaming 都意味着上次进程没正常结束
   recoveredOnBoot = db
@@ -69,12 +69,17 @@ function currentVersion(db: SqliteDb): number {
 }
 
 /**
- * 逐条应用缺失迁移，全部包在一个事务里：任一条失败则整体回滚，
+ * 逐条应用缺失迁移，全部包在一个事务里：任一条失败则整批回滚，
  * 避免出现"schema 改了一半"的半坏库。
+ *
+ * list 参数是为了让迁移测试能注入一条会失败的迁移，验证这个事务真的生效。
  */
-function migrate(db: SqliteDb): number {
+export function applyMigrations(
+  db: SqliteDb,
+  list: readonly Migration[] = migrations
+): number {
   const from = currentVersion(db)
-  const pending = migrations.filter((m) => m.version > from)
+  const pending = list.filter((m) => m.version > from)
   if (pending.length === 0) return 0
 
   const run = db.transaction(() => {

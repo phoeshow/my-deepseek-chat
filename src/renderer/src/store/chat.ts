@@ -43,11 +43,17 @@ interface ChatStore {
   /** 输入框草稿：空态里的示例卡片需要往里填内容，所以放在 store 而不是组件内部 */
   draft: string
   setDraft: (draft: string) => void
+  /** 一次性提示（导出结果等），由 Toast 组件展示 */
+  notice: string | null
+  showNotice: (text: string) => void
+  clearNotice: () => void
 
   init: () => Promise<void>
   setError: (error: { code: string; message: string } | null) => void
 
   refreshSessions: () => Promise<void>
+  /** 清空数据后重新拉取全部状态 */
+  reloadAll: () => Promise<void>
   refreshThread: () => Promise<void>
   selectSession: (id: string) => Promise<void>
   createSession: () => Promise<void>
@@ -119,8 +125,11 @@ export const useChat = create<ChatStore>((set, get) => ({
   run: null,
   error: null,
   draft: '',
+  notice: null,
 
   setDraft: (draft) => set({ draft }),
+  showNotice: (text) => set({ notice: text }),
+  clearNotice: () => set({ notice: null }),
 
   init: async () => {
     try {
@@ -140,6 +149,13 @@ export const useChat = create<ChatStore>((set, get) => ({
   refreshSessions: async () => {
     const sessions = await unwrap(window.api.session.list())
     set({ sessions })
+  },
+
+  reloadAll: async () => {
+    const sessions = await unwrap(window.api.session.list())
+    set({ sessions, messages: [], live: {}, run: null, activeSessionId: null })
+    const first = sessions[0]
+    if (first) await get().selectSession(first.id)
   },
 
   refreshThread: async () => {

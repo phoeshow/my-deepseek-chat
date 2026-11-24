@@ -1,6 +1,6 @@
 {
   "name": "my-deepseek-chat",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "本地运行的 DeepSeek 桌面聊天助手",
   "main": "./out/main/index.js",
   "author": "phoeshow",
@@ -18,7 +18,10 @@
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "smoke": "esbuild scripts/smoke-chat.ts --bundle --platform=node --format=cjs --alias:@shared=./src/shared --alias:@main=./src/main --external:better-sqlite3 --external:electron --outfile=out/smoke/smoke-chat.cjs --log-level=warning && electron out/smoke/smoke-chat.cjs",
     "e2e:ui": "bash scripts/run-e2e-ui.sh",
-    "mock": "node scripts/mock-deepseek.mjs"
+    "mock": "node scripts/mock-deepseek.mjs",
+    "test:migrations": "esbuild scripts/test-migrations.ts --bundle --platform=node --format=cjs --alias:@shared=./src/shared --alias:@main=./src/main --external:better-sqlite3 --external:electron --outfile=out/smoke/test-migrations.cjs --log-level=warning && electron out/smoke/test-migrations.cjs",
+    "dist": "pnpm build && electron-builder --linux AppImage",
+    "dist:dir": "pnpm build && electron-builder --dir"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.28",
@@ -41,6 +44,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
     "esbuild": "^0.28.2",
     "tailwindcss": "^4.3.5",

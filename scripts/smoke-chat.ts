@@ -9,6 +9,12 @@ import { closeDatabase, getDb, initDatabase, recoveredMessageCount } from '../sr
 import * as messagesRepo from '../src/main/db/repo/message'
 import { countSiblings, getThread } from '../src/main/db/repo/message'
 import * as sessions from '../src/main/db/repo/session'
+import { scrubLogValue } from '../src/main/logger'
+import {
+  renderSessionMarkdown,
+  renderSessionsJson,
+  safeFileName
+} from '../src/main/services/export-render'
 import { initModels, rememberModels } from '../src/main/services/models'
 import { getKey, initSecret, setKey } from '../src/main/services/secret'
 import { initSettings, updateConfig } from '../src/main/services/settings'
@@ -254,6 +260,42 @@ async function main(): Promise<void> {
       configuredBody?.reasoning_effort === undefined,
       configuredBody?.reasoning_effort
     )
+
+    console.log('\n[10] 导出渲染')
+    const exportSession = sessions.mustGetSession(session.id)
+    const exportThread = getThread(session.id, exportSession.activeLeafId)
+    const withReasoning = renderSessionMarkdown(exportSession, exportThread, true)
+    const withoutReasoning = renderSessionMarkdown(exportSession, exportThread, false)
+    check('Markdown 含会话标题', withReasoning.startsWith(`# ${exportSession.title}`))
+    check('Markdown 含思考过程块', withReasoning.includes('<summary>思考过程</summary>'))
+    check('关闭选项后不含思考过程', !withoutReasoning.includes('先确认需求'))
+    check('Markdown 含正文', withoutReasoning.includes('你好，世界。'))
+
+    const json = renderSessionsJson([{ session: exportSession, messages: exportThread }])
+    const parsed = JSON.parse(json) as {
+      format: string
+      version: number
+      sessions: { messages: unknown[] }[]
+    }
+    check('JSON 结构完整', parsed.format === 'my-deepseek-chat.export' && parsed.version === 1)
+    check('JSON 含消息', (parsed.sessions[0]?.messages.length ?? 0) >= 2, parsed.sessions[0]?.messages.length)
+    check('JSON 不含密钥字段', !/apiKey|api_key|sk-/.test(json))
+    check('JSON 不含 baseUrl', !/baseUrl/.test(json))
+    check('文件名过滤非法字符', safeFileName('a/b:c*d?"<>|') === 'a_b_c_d_____', safeFileName('a/b:c*d?"<>|'))
+
+    console.log('\n[11] 日志脱敏')
+    check('sk- 开头的密钥被抹掉', scrubLogValue('key=sk-abcdef1234567890') === 'key=sk-***', scrubLogValue('key=sk-abcdef1234567890'))
+    check(
+      'Authorization Bearer 被抹掉',
+      !String(scrubLogValue('Authorization: Bearer sk-abc123456')).includes('sk-abc123456'),
+      scrubLogValue('Authorization: Bearer sk-abc123456')
+    )
+    check(
+      'api_key= 形式被抹掉',
+      !String(scrubLogValue('api_key: "supersecret"')).includes('supersecret'),
+      scrubLogValue('api_key: "supersecret"')
+    )
+    check('普通文本不受影响', scrubLogValue('普通日志 text') === '普通日志 text')
 
   } finally {
     closeDatabase()

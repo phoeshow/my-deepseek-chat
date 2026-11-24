@@ -98,6 +98,9 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 | 渲染层拿缓存的 `session.activeLeafId` 去查线程 | 该值在 `end` 帧到达时会落后一轮，新回答会从界面消失。让主进程按数据库的 `active_leaf_id` 解析 |
 | 用 `pkill -f <pattern>`，而 pattern 又出现在同一条命令里 | 会杀掉自己的 shell。把 pattern 写进脚本文件再调用 |
 | 把 Shiki 语言静态 import 进主 chunk | 8 种语言就是 1MB+。走 `shiki/langs/*.mjs` 动态 import |
+| 在 `pointerup` 里提交 `props.width` | `pointermove` 与 `pointerup` 常在同一任务内，props 还没更新，会把宽度写回起点。用 ref 存最近一次计算值 |
+| 用 `aside` 选中"侧栏" | 右栏参数面板也是 `<aside>`。用 `[aria-label="折叠侧栏"]` 这类专属标记定位 |
+| 用 `app.getName()` 决定 userData | 打包后它变成 productName，数据目录会换位置。在 ready 之前 `app.setName('my-deepseek-chat')` 固定 |
 
 ## 八、提交与产物
 

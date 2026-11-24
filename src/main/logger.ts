@@ -11,7 +11,7 @@ const SCRUBBERS: readonly [RegExp, string][] = [
   [/("?api[_-]?key"?\s*[:=]\s*)["']?[^"',\s}]+/gi, '$1***']
 ]
 
-function scrub(value: unknown): unknown {
+export function scrubLogValue(value: unknown): unknown {
   if (typeof value !== 'string') return value
   return SCRUBBERS.reduce((acc, [re, replacement]) => acc.replace(re, replacement), value)
 }
@@ -19,7 +19,7 @@ function scrub(value: unknown): unknown {
 log.transports.file.level = 'info'
 log.transports.console.level = app.isPackaged ? 'warn' : 'debug'
 log.hooks.push((message) => {
-  message.data = message.data.map(scrub)
+  message.data = message.data.map(scrubLogValue)
   return message
 })
 

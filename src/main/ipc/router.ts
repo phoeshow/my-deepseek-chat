@@ -1,7 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { join } from 'node:path'
+import { rmSync } from 'node:fs'
 import { z } from 'zod'
 import type { AppErrorCode, BootstrapInfo, Result } from '@shared/types'
-import { recoveredMessageCount } from '../db'
+import { closeDatabase, initDatabase, recoveredMessageCount } from '../db'
 import { countSessions } from '../db/repo/session'
 import * as messages from '../db/repo/message'
 import * as sessions from '../db/repo/session'
@@ -9,6 +11,7 @@ import * as chat from '../chat/service'
 import { logger } from '../logger'
 import { fetchModels, getModels, rememberModels } from '../services/models'
 import { clearKey, encryptionStatus, getKey, hasKey, setKey } from '../services/secret'
+import * as exporter from '../services/export'
 import { getConfig, patchConfig } from '../services/settings'
 import { readUiState } from '../window'
 
@@ -46,6 +49,13 @@ export function registerIpc(ctx: RouterContext): void {
         defaultThinking: z.boolean().optional(),
         defaultEffort: z.enum(['low', 'high', 'max']).optional(),
         autoTitle: z.boolean().optional(),
+        // 只接受 http(s)：baseUrl 是唯一允许出网的地址，不能让它变成 file:/ftp:
+        baseUrl: z
+          .string()
+          .url()
+          .max(2048)
+          .refine((value) => /^https?:\/\//i.test(value), '只支持 http(s) 地址')
+          .optional(),
         window: z
           .object({
             sidebarWidth: z.number().int().min(160).max(500).optional(),
@@ -184,6 +194,43 @@ export function registerIpc(ctx: RouterContext): void {
     chat.regenerate(input.assistantMessageId)
   )
 
+  // ---- 导出与数据管理（docs/05 §M4.3/§M4.4）----
+  handle(
+    'export:session',
+    z.object({
+      sessionId: z.string().uuid(),
+      format: z.enum(['md', 'json']),
+      includeReasoning: z.boolean()
+    }),
+    (input) =>
+      exporter.exportSession(
+        ctx.getWindow(),
+        input.sessionId,
+        input.format,
+        input.includeReasoning
+      )
+  )
+
+  handle('export:all', z.void(), () => exporter.exportAll(ctx.getWindow()))
+
+  handle('app:open-data-dir', z.void(), async () => {
+    const error = await shell.openPath(ctx.dataDir)
+    if (error) throw new Error(error)
+    return { opened: true }
+  })
+
+  handle('app:clear-conversations', z.void(), () => {
+    // 关连接 → 删库文件 → 重新建库并跑迁移。WAL 与 -shm 必须一起删，
+    // 否则残留的 WAL 会被下一次打开时回放，等于没清干净。
+    closeDatabase()
+    for (const suffix of ['', '-wal', '-shm']) {
+      rmSync(join(ctx.dataDir, `chat.db${suffix}`), { force: true })
+    }
+    initDatabase(ctx.dataDir)
+    logger.info('[data] conversations cleared')
+    return { deleted: countSessions() }
+  })
+
   // ---- 外链（docs/01 R5）----
   handle('shell:open-external', z.object({ url: z.string().url().max(2048) }), async (input) => {
     const parsed = new URL(input.url)
@@ -233,7 +280,7 @@ export function registerIpc(ctx: RouterContext): void {
     return win ? readUiState(win) : { maximized: false, focused: false }
   })
 
-  logger.info('[ipc] registered 21 channels')
+  logger.info('[ipc] registered 25 channels')
 }
 
 /**
