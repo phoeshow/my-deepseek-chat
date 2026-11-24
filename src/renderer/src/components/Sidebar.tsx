@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { SessionSummary } from '@shared/types'
 import { useChat } from '../store/chat'
+import { FontAwesomeIcon, Icon } from './icons'
 
 interface Props {
   width: number
@@ -61,7 +62,7 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
           aria-label="折叠侧栏"
           title="折叠侧栏（Ctrl/⌘+B）"
         >
-          «
+          <FontAwesomeIcon icon={Icon.sidebarCollapse} className="text-[11px]" />
         </button>
         <button
           type="button"
@@ -69,7 +70,8 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
           className="rounded-sm px-2 py-1 text-ui text-fg-muted hover:bg-surface-hover hover:text-fg"
           title="新建会话（Ctrl/⌘+N）"
         >
-          ＋ 新对话
+          <FontAwesomeIcon icon={Icon.newChat} className="mr-1.5 text-[10px]" />
+          新对话
         </button>
       </div>
 
@@ -133,7 +135,7 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
                   aria-haspopup="menu"
                   aria-expanded={menuFor === session.id}
                 >
-                  ⋯
+                  <FontAwesomeIcon icon={Icon.sessionMenu} className="text-[12px]" />
                 </button>
 
                 {menuFor === session.id && (
@@ -166,7 +168,8 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
           onClick={onOpenSettings}
           className="w-full rounded-sm px-3 py-2 text-left text-ui text-fg-muted hover:bg-surface-hover hover:text-fg"
         >
-          ⚙ 设置
+          <FontAwesomeIcon icon={Icon.settings} className="mr-2 text-[11px]" />
+          设置
         </button>
       </div>
 

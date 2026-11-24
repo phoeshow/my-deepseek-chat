@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { DEFAULT_CONFIG } from '@shared/defaults'
+import { CONFIG_VERSION, DEFAULT_CONFIG } from '@shared/defaults'
 import type { AppConfig, AppConfigPatch, WindowState } from '@shared/types'
 import { logger } from '../logger'
 
@@ -60,6 +60,16 @@ export function initSettings(dataDir: string): AppConfig {
       return config
     }
     config = result.data
+
+    // 配置版本迁移：v2 把「默认深度思考」改成开启。
+    // 只在老配置上执行一次，之后用户自己的开关选择不会被覆盖。
+    if (config.version < CONFIG_VERSION) {
+      if (config.version < 2) config.defaultThinking = true
+      config = { ...config, version: CONFIG_VERSION }
+      saveConfig()
+      logger.info('[settings] migrated config', { to: CONFIG_VERSION })
+    }
+
     logger.info('[settings] loaded', { theme: config.theme, baseUrl: config.baseUrl })
   } catch (err) {
     logger.error('[settings] failed to read config.json, using defaults', err)

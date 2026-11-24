@@ -1,13 +1,13 @@
 import type { AppConfig } from './types'
 
-export const CONFIG_VERSION = 1
+export const CONFIG_VERSION = 2
 
 /** 与 docs/04-视觉规范.md §2 的栅格参数保持一致 */
 export const DEFAULT_CONFIG: AppConfig = {
   version: CONFIG_VERSION,
   baseUrl: 'https://api.deepseek.com',
   defaultModelId: null,
-  defaultThinking: false,
+  defaultThinking: true,
   defaultEffort: 'high',
   theme: 'system',
   autoTitle: true,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { WindowUiState } from '@shared/types'
 import { useChat } from '../store/chat'
+import { FontAwesomeIcon, Icon } from './icons'
 
 /**
  * 自绘标题栏（docs/04 §2.1）。
@@ -41,14 +42,14 @@ export function TitleBar(): React.JSX.Element {
 
   const controls = (
     <div className="app-no-drag flex items-stretch">
-      {onLeft && <ControlButton label="关闭" tone="close" onClick={close} icon={<CloseIcon />} />}
-      <ControlButton label="最小化" onClick={minimize} icon={<MinimizeIcon />} />
+      {onLeft && <ControlButton label="关闭" tone="close" onClick={close} icon={Icon.close} />}
+      <ControlButton label="最小化" onClick={minimize} icon={Icon.minimize} />
       <ControlButton
         label={windowState.maximized ? '还原' : '最大化'}
         onClick={toggleMaximize}
-        icon={windowState.maximized ? <RestoreIcon /> : <MaximizeIcon />}
+        icon={windowState.maximized ? Icon.restore : Icon.maximize}
       />
-      {!onLeft && <ControlButton label="关闭" tone="close" onClick={close} icon={<CloseIcon />} />}
+      {!onLeft && <ControlButton label="关闭" tone="close" onClick={close} icon={Icon.close} />}
     </div>
   )
 
@@ -61,9 +62,7 @@ export function TitleBar(): React.JSX.Element {
         onDoubleClick={toggleMaximize}
         title="双击切换最大化"
       >
-        <span aria-hidden="true" className="text-meta text-fg-subtle">
-          ✦
-        </span>
+        <FontAwesomeIcon icon={Icon.assistant} className="text-[10px] text-fg-subtle" />
         <span className="text-ui font-medium text-fg-muted">DeepSeek</span>
       </div>
 
@@ -82,7 +81,7 @@ function ControlButton({
   tone
 }: {
   label: string
-  icon: React.JSX.Element
+  icon: Parameters<typeof FontAwesomeIcon>[0]['icon']
   onClick: () => void
   tone?: 'close'
 }): React.JSX.Element {
@@ -96,42 +95,7 @@ function ControlButton({
       title={label}
       className={`app-no-drag flex w-10 items-center justify-center text-fg-muted transition-colors ${hover}`}
     >
-      {icon}
+      <FontAwesomeIcon icon={icon} className="text-[10px]" />
     </button>
-  )
-}
-
-/* 10px 线性图标：用 SVG 而非 ▁ □ ✕ 字符，避免不同字体下尺寸与基线漂移 */
-
-function MinimizeIcon(): React.JSX.Element {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <path d="M1 5h8" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  )
-}
-
-function MaximizeIcon(): React.JSX.Element {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  )
-}
-
-function RestoreIcon(): React.JSX.Element {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <rect x="1" y="3" width="6" height="6" fill="none" stroke="currentColor" strokeWidth="1" />
-      <path d="M3 3V1h6v6H7" fill="none" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  )
-}
-
-function CloseIcon(): React.JSX.Element {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-      <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1" />
-    </svg>
   )
 }

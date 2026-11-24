@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useChat } from '../store/chat'
 import { IpcError } from '../lib/ipc'
+import { FontAwesomeIcon, Icon } from './icons'
 
 interface Props {
   onClose: () => void
@@ -71,7 +72,7 @@ export function SettingsDialog({ onClose }: Props): React.JSX.Element {
             className="rounded px-2 text-fg-subtle hover:text-fg"
             aria-label="关闭设置"
           >
-            ×
+            <FontAwesomeIcon icon={Icon.close} className="text-[12px]" />
           </button>
         </header>
 

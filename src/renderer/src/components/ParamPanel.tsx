@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useChat } from '../store/chat'
+import { FontAwesomeIcon, Icon } from './icons'
 
 /**
  * 右栏参数面板（docs/04 §4.5/§4.6）。
@@ -61,7 +62,7 @@ export function ParamPanel({ width }: { width: number }): React.JSX.Element | nu
           aria-label="折叠参数面板"
           title="折叠参数面板"
         >
-          »
+          <FontAwesomeIcon icon={Icon.panelCollapse} className="text-[11px]" />
         </button>
       </header>
 

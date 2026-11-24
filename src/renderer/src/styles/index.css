@@ -213,3 +213,39 @@
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------
+ * 发送按钮：4px 扩散光晕 + 强化按压反馈
+ * 光晕用 color-mix 由 accent 派生，明暗两套主题自动跟随，不额外加令牌。
+ * ------------------------------------------------------------------ */
+@layer components {
+  .btn-send {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 16%, transparent);
+    transition:
+      transform 120ms ease-out,
+      box-shadow 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+
+  .btn-send:hover:not(:disabled) {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 28%, transparent);
+  }
+
+  /* 按下时缩小 + 光晕收紧，形成"按进去"的反馈 */
+  .btn-send:active:not(:disabled) {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 36%, transparent);
+  }
+
+  .btn-send:disabled {
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-send,
+  .btn-send:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
+}

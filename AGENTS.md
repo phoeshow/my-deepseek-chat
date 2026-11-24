@@ -35,6 +35,8 @@
 8. **所有 IPC 入参过 zod**，返回统一信封 `{ ok, data } | { ok: false, code, message }`。
 9. **颜色只用 CSS 变量令牌**（`--accent` 等）。组件里禁止硬编码 hex；明暗两套值改在 `tokens.css`。
 10. **禁止 `outline: none` 裸奔**。焦点环统一 `2px --accent` + `2px offset`。
+11. **图标只用 Font Awesome**，且在 `src/renderer/src/components/icons.ts` 的 `Icon` 映射里登记后取用；**禁止手写 SVG path，禁止拿 `▸ ✓ × ⋯ ✦` 等字符当图标**（字体回退会让它们在不同机器上漂移）。新增图标先登记再使用。
+12. **输入区结构固定**：整条带（`bg-canvas` + 顶部 1px `--border`）与对话区分层；输入框占满中栏、最小两行；开关与发送键在输入框**之外**单独一行右对齐。不要把控件塞回输入框内部。
 
 ## 四、决策不可复议
 
@@ -64,6 +66,7 @@ pnpm build        # typecheck + 产物输出到 out/
 pnpm rebuild      # electron-rebuild -f -w better-sqlite3（改原生依赖后必须跑）
 pnpm preview      # 用生产产物启动
 
+pnpm test:migrations # 迁移测试：为每个历史版本造库 → 升级 → 断言数据/幂等/原子回滚/FTS 回填
 pnpm smoke        # 主进程冒烟：真 ChatService + SQLite + 帧广播，自起 mock SSE，数据写临时目录
 pnpm e2e:ui       # UI 端到端：CDP 驱动真实键盘事件，断言流式渲染（自动起 mock、临时 userData）
 pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传 sk-fail-<status> 可注入故障）
@@ -101,6 +104,9 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 | 在 `pointerup` 里提交 `props.width` | `pointermove` 与 `pointerup` 常在同一任务内，props 还没更新，会把宽度写回起点。用 ref 存最近一次计算值 |
 | 用 `aside` 选中"侧栏" | 右栏参数面板也是 `<aside>`。用 `[aria-label="折叠侧栏"]` 这类专属标记定位 |
 | 用 `app.getName()` 决定 userData | 打包后它变成 productName，数据目录会换位置。在 ready 之前 `app.setName('my-deepseek-chat')` 固定 |
+| 手绘 SVG 或字符当图标 | 用 `Icon.xxx`（Font Awesome）。字符图标随字体回退漂移，自绘描边宽度难统一 |
+| 把配置默认值改了就以为老用户生效 | `config.json` 有 `version` 字段，改默认值必须加版本号 + 一次性迁移，否则老配置永远停在旧值 |
+| 用 `disabled:opacity-40` 处理彩色按钮 | 白字配 40% 透明度的强调色基本看不见。禁用态应换成中性底色 + 次要文字色 |
 
 ## 八、提交与产物
 

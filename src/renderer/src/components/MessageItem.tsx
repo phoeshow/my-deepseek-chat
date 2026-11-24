@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ChatMessage } from '@shared/types'
 import { useChat } from '../store/chat'
+import { FontAwesomeIcon, Icon } from './icons'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 
 interface Props {
@@ -27,9 +28,11 @@ export function MessageItem({ message, isLastAssistant }: Props): React.JSX.Elem
       <div className={isUser ? 'max-w-[70%]' : 'w-full'}>
         {!isUser && (
           <div className="mb-1 flex items-center gap-2">
-            <span aria-hidden="true" className="text-meta text-fg-subtle">
-              ✦
-            </span>
+            <FontAwesomeIcon
+              icon={Icon.assistant}
+              className="text-[9px] text-fg-subtle"
+              aria-hidden="true"
+            />
             <span className="text-micro text-fg-subtle">{message.modelId ?? 'DeepSeek'}</span>
           </div>
         )}
@@ -57,16 +60,22 @@ export function MessageItem({ message, isLastAssistant }: Props): React.JSX.Elem
         )}
 
         <div className="mt-1 flex h-6 items-center gap-3 text-micro text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <button type="button" onClick={() => void copy()} className="hover:text-fg">
-            {copied ? '✓ 已复制' : '复制'}
+          <button
+            type="button"
+            onClick={() => void copy()}
+            className="inline-flex items-center gap-1 hover:text-fg"
+          >
+            <FontAwesomeIcon icon={copied ? Icon.copied : Icon.copy} className="text-[10px]" />
+            {copied ? '已复制' : '复制'}
           </button>
           {isLastAssistant && !streaming && (
             <button
               type="button"
               onClick={() => void regenerate(message.id)}
               disabled={running}
-              className="hover:text-fg disabled:opacity-40"
+              className="inline-flex items-center gap-1 hover:text-fg disabled:opacity-40"
             >
+              <FontAwesomeIcon icon={Icon.regenerate} className="text-[10px]" />
               重新生成
             </button>
           )}
@@ -105,9 +114,11 @@ function ReasoningBlock({
         className={`text-micro ${streaming ? 'shimmer text-fg-muted' : 'text-fg-subtle hover:text-fg-muted'}`}
         aria-expanded={open}
       >
-        <span aria-hidden="true" className="mr-1">
-          {open ? '▾' : '▸'}
-        </span>
+        <FontAwesomeIcon
+          icon={open ? Icon.reasoningOpen : Icon.reasoningClosed}
+          className="mr-1.5 text-[8px]"
+          aria-hidden="true"
+        />
         {label}
       </button>
 

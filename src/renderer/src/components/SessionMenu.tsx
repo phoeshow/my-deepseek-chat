@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReasoningEffort } from '@shared/types'
 import { useChat } from '../store/chat'
+import { FontAwesomeIcon, Icon } from './icons'
 
 /**
  * 会话级设定（docs/05 §M2.6）：模型、思考模式、思考强度。
  * 写入跟随会话，切换会话后各自还原；三级开关的中间层就是这里。
  *
- * 参数面板（温度 / 最大输出）在 M3 的右栏统一做，这里只放影响“用哪个模型、要不要深思”的项。
+ * 参数面板（温度 / 最大输出）在 M3 的右栏统一做，这里只放影响“用哪个模型、要不要深度思考”的项。
  */
 export function SessionMenu(): React.JSX.Element {
   const session = useChat((state) => state.sessions.find((item) => item.id === state.activeSessionId))
@@ -57,9 +58,7 @@ export function SessionMenu(): React.JSX.Element {
         className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-0.5 text-micro text-fg-muted hover:border-accent hover:text-fg"
       >
         {modelLabel}
-        <span aria-hidden="true" className="text-fg-subtle">
-          ▾
-        </span>
+        <FontAwesomeIcon icon={Icon.chevronDown} className="text-[8px] text-fg-subtle" />
       </button>
 
       {open && (
@@ -152,7 +151,9 @@ function Option({
         selected ? 'bg-accent-subtle text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
       }`}
     >
-      <span className="w-3 shrink-0 text-accent">{selected ? '✓' : ''}</span>
+      <span className="flex w-3 shrink-0 justify-center text-accent">
+        {selected && <FontAwesomeIcon icon={Icon.check} className="text-[9px]" />}
+      </span>
       {children}
     </button>
   )

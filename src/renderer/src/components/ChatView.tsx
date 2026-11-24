@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ChatMessage, MessageStatus } from '@shared/types'
 import { useChat, type LiveMessage } from '../store/chat'
 import { Composer } from './Composer'
+import { FontAwesomeIcon, Icon } from './icons'
 import { MessageItem } from './MessageItem'
 import { SessionMenu } from './SessionMenu'
 
@@ -68,7 +69,7 @@ export function ChatView(): React.JSX.Element {
             aria-label="展开侧栏"
             title="展开侧栏（Ctrl/⌘+B）"
           >
-            ☰
+            <FontAwesomeIcon icon={Icon.sidebarExpand} className="text-[13px]" />
           </button>
         )}
         <span className="min-w-0 flex-1 truncate text-title font-medium">
@@ -82,7 +83,7 @@ export function ChatView(): React.JSX.Element {
             aria-label="展开参数面板"
             title="展开参数面板"
           >
-            <SlidersIcon />
+            <FontAwesomeIcon icon={Icon.panelExpand} className="text-[13px]" />
           </button>
         )}
         <SessionMenu />
@@ -172,7 +173,7 @@ const EXAMPLES = [
   '把这个需求拆成可执行的开发任务清单'
 ]
 
-/** 空态（docs/04 §4.8）：给三个可直接改写的示例，而不是一句干巴巴的提示 */
+/** 空态（docs/04 §4.9）：给三个可直接改写的示例，而不是一句干巴巴的提示 */
 function EmptyState({
   onPick,
   disabled
@@ -198,16 +199,6 @@ function EmptyState({
       </div>
       <p className="text-micro text-fg-subtle">Enter 发送，Shift+Enter 换行</p>
     </div>
-  )
-}
-
-function SlidersIcon(): React.JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <path d="M2 4h10M2 10h10" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="5" cy="4" r="1.6" fill="currentColor" />
-      <circle cx="9" cy="10" r="1.6" fill="currentColor" />
-    </svg>
   )
 }
 

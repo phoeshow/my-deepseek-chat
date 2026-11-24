@@ -249,12 +249,12 @@ check('缓存命中百分比已渲染', /缓存命中\s*\d+%/.test(await bodyTex
 
 console.log('\n[9] 本条临时思考开关')
 const pressedBefore = await evaluate(
-  `document.querySelector('button[aria-pressed][title*="深度思考"]')?.getAttribute('aria-pressed')`
+  `document.querySelector('[role="switch"][aria-label="深度思考"]')?.getAttribute('aria-checked')`
 )
-await evaluate(`document.querySelector('button[aria-pressed][title*="深度思考"]')?.click()`)
+await evaluate(`document.querySelector('[role="switch"][aria-label="深度思考"]')?.click()`)
 await sleep(300)
 const pressedAfter = await evaluate(
-  `document.querySelector('button[aria-pressed][title*="深度思考"]')?.getAttribute('aria-pressed')`
+  `document.querySelector('[role="switch"][aria-label="深度思考"]')?.getAttribute('aria-checked')`
 )
 check(
   `点击后临时状态翻转（${pressedBefore} → ${pressedAfter}）`,

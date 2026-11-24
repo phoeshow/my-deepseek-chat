@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { highlightCode, normalizeLang } from '../../lib/shiki'
+import { FontAwesomeIcon, Icon } from '../icons'
 
 interface Props {
   code: string
@@ -54,9 +55,10 @@ export function CodeBlock({ code, lang, streaming = false }: Props): React.JSX.E
         <button
           type="button"
           onClick={() => void copy()}
-          className="text-micro text-fg-subtle hover:text-fg"
+          className="inline-flex items-center gap-1 text-micro text-fg-subtle hover:text-fg"
         >
-          {copied ? '✓ 已复制' : '复制'}
+          <FontAwesomeIcon icon={copied ? Icon.copied : Icon.copy} className="text-[9px]" />
+          {copied ? '已复制' : '复制'}
         </button>
       </div>
       <div className="overflow-x-auto bg-code-bg p-3 text-meta leading-relaxed">
