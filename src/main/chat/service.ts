@@ -195,6 +195,8 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
   let usage: TokenUsage | undefined
   let finishReason: string | null = null
   let firstTokenAt: number | null = null
+  let firstThinkingAt: number | null = null
+  let lastThinkingAt: number | null = null
 
   emit({ requestId: run.requestId, type: 'start', assistantMessageId: run.assistantMessageId, startedAt })
 
@@ -239,6 +241,8 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
       switch (event.type) {
         case 'thinking':
           reasoning += event.delta
+          firstThinkingAt ??= Date.now()
+          lastThinkingAt = Date.now()
           throttle.mark()
           emit({ requestId: run.requestId, type: 'think', delta: event.delta })
           break
@@ -257,7 +261,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
       }
     }
 
-    const finalUsage = finalizeUsage(usage, firstTokenAt, startedAt)
+    const finalUsage = finalizeUsage(usage, firstTokenAt, startedAt, thinkingSpan(firstThinkingAt, lastThinkingAt))
     const reason = finishReason === 'length' ? 'length' : 'stop'
 
     throttle.dispose()
@@ -270,7 +274,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
       endedAt: Date.now()
     })
   } catch (err) {
-    const finalUsage = finalizeUsage(usage, firstTokenAt, startedAt)
+    const finalUsage = finalizeUsage(usage, firstTokenAt, startedAt, thinkingSpan(firstThinkingAt, lastThinkingAt))
 
     if (isAbortError(err)) {
       throttle.dispose()
@@ -355,7 +359,8 @@ function persist(
 function finalizeUsage(
   usage: TokenUsage | undefined,
   firstTokenAt: number | null,
-  startedAt: number
+  startedAt: number,
+  reasoningSpanMs?: number
 ): TokenUsage | undefined {
   const endedAt = Date.now()
   const base: TokenUsage = usage ?? { prompt: 0, completion: 0 }
@@ -364,8 +369,15 @@ function finalizeUsage(
   return {
     ...base,
     ...(firstTokenAt !== null ? { firstTokenMs: firstTokenAt - startedAt } : {}),
+    ...(reasoningSpanMs !== undefined ? { reasoningMs: reasoningSpanMs } : {}),
     durationMs: endedAt - startedAt
   }
+}
+
+/** 只有真的收到过思维链才返回耗时，否则 UI 不该显示「已思考」 */
+function thinkingSpan(first: number | null, last: number | null): number | undefined {
+  if (first === null) return undefined
+  return Math.max((last ?? first) - first, 0)
 }
 
 function toChatError(err: unknown, hasPartialContent: boolean): ChatError {

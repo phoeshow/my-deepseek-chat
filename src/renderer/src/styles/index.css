@@ -56,3 +56,160 @@
     background: var(--color-fg-subtle);
   }
 }
+
+/* ------------------------------------------------------------------
+ * Markdown 正文排版（docs/04 §4.2）
+ * 正文 14/1.7 已在令牌里定好，这里只管块级元素之间的节奏。
+ * ------------------------------------------------------------------ */
+@layer components {
+  .markdown-body {
+    font-size: var(--text-body);
+    line-height: 1.7;
+    word-break: break-word;
+  }
+
+  .markdown-body > * + * {
+    margin-top: 12px;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4 {
+    font-weight: 600;
+    line-height: 1.4;
+    margin-top: 20px;
+  }
+
+  .markdown-body h1 {
+    font-size: 20px;
+  }
+  .markdown-body h2 {
+    font-size: 17px;
+  }
+  .markdown-body h3 {
+    font-size: 15px;
+  }
+  .markdown-body h4 {
+    font-size: 14px;
+  }
+
+  .markdown-body ul {
+    list-style: disc;
+    padding-left: 20px;
+  }
+  .markdown-body ol {
+    list-style: decimal;
+    padding-left: 20px;
+  }
+  .markdown-body li + li {
+    margin-top: 4px;
+  }
+
+  .markdown-body blockquote {
+    border-left: 2px solid var(--color-line);
+    padding-left: 12px;
+    color: var(--color-fg-muted);
+  }
+
+  .markdown-body table {
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .markdown-body th,
+  .markdown-body td {
+    border: 1px solid var(--color-line);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .markdown-body th {
+    background: var(--color-canvas);
+    font-weight: 600;
+  }
+
+  /* 行内代码：块级代码由 CodeBlock 组件接管，不在此处 */
+  .markdown-body :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--color-code-bg);
+    border: 1px solid var(--color-line-subtle);
+    border-radius: 4px;
+    padding: 1px 4px;
+  }
+
+  .markdown-body hr {
+    border: 0;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .markdown-body img {
+    max-width: 100%;
+    border-radius: 6px;
+  }
+
+  /* 流式光标挂在最后一个块元素的末尾，避免额外占一行 */
+  .markdown-body.is-streaming > *:last-child::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -0.15em;
+    background: var(--color-accent);
+    animation: caret-pulse 1s ease-in-out infinite;
+  }
+
+  /* shiki 双主题：只填 color，主题名切换不需要重新高亮 */
+  .shiki-block pre.shiki {
+    background: transparent !important;
+  }
+  .shiki-block pre.shiki span {
+    color: light-dark(var(--shiki-light), var(--shiki-dark));
+  }
+
+  /* 思考中的微光扫过 */
+  .shimmer {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-fg-subtle) 0%,
+      var(--color-fg) 50%,
+      var(--color-fg-subtle) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer-slide 1.8s linear infinite;
+  }
+}
+
+@keyframes caret-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes shimmer-slide {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    color: var(--color-fg-muted);
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+  }
+  .markdown-body.is-streaming > *:last-child::after {
+    animation: none;
+  }
+}

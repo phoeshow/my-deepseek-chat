@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useChat } from '../store/chat'
 import { IpcError } from '../lib/ipc'
 
@@ -12,6 +12,7 @@ export function SettingsDialog({ onClose }: Props): React.JSX.Element {
   const saveKey = useChat((state) => state.saveKey)
   const testKey = useChat((state) => state.testKey)
   const refreshModels = useChat((state) => state.refreshModels)
+  const patchConfig = useChat((state) => state.patchConfig)
 
   const [apiKey, setApiKey] = useState('')
   const [reveal, setReveal] = useState(false)
@@ -20,6 +21,15 @@ export function SettingsDialog({ onClose }: Props): React.JSX.Element {
 
   const encryption = boot?.encryption
   const hasKey = boot?.hasKey ?? false
+
+  // 模态弹层必须有 Esc 关闭与 dialog 语义（docs/04 §7）
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   const run = async (
     kind: 'save' | 'test' | 'models',
@@ -40,14 +50,19 @@ export function SettingsDialog({ onClose }: Props): React.JSX.Element {
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-6">
-      <div className="w-[520px] max-w-full rounded-lg border border-line bg-surface">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="设置"
+        className="w-[520px] max-w-full rounded-lg border border-line bg-surface"
+      >
         <header className="flex h-12 items-center justify-between border-b border-line px-4">
           <span className="text-title font-medium">设置</span>
           <button
             type="button"
             onClick={onClose}
             className="rounded px-2 text-fg-subtle hover:text-fg"
-            aria-label="关闭"
+            aria-label="关闭设置"
           >
             ×
           </button>
@@ -97,6 +112,33 @@ export function SettingsDialog({ onClose }: Props): React.JSX.Element {
                   : `加密存储（${encryption.backend ?? '系统密钥链'}）`
                 : '系统密钥链不可用，将以明文存储并 chmod 600'}
             </p>
+          </section>
+
+          <section className="border-t border-line-subtle pt-4">
+            <span className="text-ui font-semibold text-fg-muted">主题</span>
+            <div className="mt-2 flex gap-1">
+              {(
+                [
+                  ['system', '跟随系统'],
+                  ['light', '浅色'],
+                  ['dark', '深色']
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => void patchConfig({ theme: value })}
+                  aria-pressed={boot?.config.theme === value}
+                  className={`flex-1 rounded-sm border px-2 py-1.5 text-ui ${
+                    boot?.config.theme === value
+                      ? 'border-accent bg-accent-subtle text-accent'
+                      : 'border-line text-fg-muted hover:text-fg'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section className="border-t border-line-subtle pt-4">

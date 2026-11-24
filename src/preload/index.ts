@@ -48,6 +48,14 @@ const api: AppApi = {
     }
   },
 
+  settings: {
+    update: (patch) => invoke('settings:update', { patch })
+  },
+
+  system: {
+    openExternal: (url) => invoke('shell:open-external', { url })
+  },
+
   windowControls: {
     minimize: () => invoke('window:minimize'),
     toggleMaximize: () => invoke('window:toggle-maximize'),

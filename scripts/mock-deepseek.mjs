@@ -48,10 +48,60 @@ const server = createServer((req, res) => {
     return res.end()
   }
 
-  req.on('data', () => undefined)
+  let raw = ''
+  req.on('data', (chunk) => {
+    raw += chunk
+  })
   req.on('end', async () => {
     if (failStatus) {
       return json(res, failStatus, { error: { message: `mock failure ${failStatus}` } })
+    }
+
+    // 提示词里带 markdown 时返回富文本，用于验证渲染管线
+    let wantsMarkdown = false
+    try {
+      const parsed = JSON.parse(raw)
+      const lastUser = [...(parsed.messages ?? [])].reverse().find((m) => m.role === 'user')
+      wantsMarkdown = typeof lastUser?.content === 'string' && lastUser.content.includes('markdown')
+    } catch {
+      wantsMarkdown = false
+    }
+
+    if (wantsMarkdown) {
+      const md = [
+        '### 渲染示例',
+        '',
+        '行内代码 `stream_options.include_usage`，以及一个列表：',
+        '',
+        '- 第一项',
+        '- 第二项',
+        '',
+        '| 维度 | 取值 |',
+        '|---|---|',
+        '| 上下文 | 1M |',
+        '',
+        '```ts',
+        'export const ratio = (hit: number, total: number): number => (total === 0 ? 0 : hit / total)',
+        '```'
+      ].join('\n')
+      const chunks = [
+        'data: {"choices":[{"delta":{"reasoning_content":"用户要渲染示例。"}}]}\n\n',
+        ...md.match(/[\s\S]{1,40}/g).map((piece) => 'data: ' + JSON.stringify({
+          choices: [{ delta: { content: piece } }]
+        }) + '\n\n'),
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n',
+        // 真实 API 在流末返回 usage；缺了它预算条与缓存命中就永远为空
+        'data: {"choices":[],"usage":{"prompt_tokens":640,"completion_tokens":96,'
+          + '"prompt_cache_hit_tokens":512}}\n\n',
+        'data: [DONE]\n\n'
+      ]
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
+      for (const chunk of chunks) {
+        await sleep(10)
+        res.write(chunk)
+      }
+      res.end()
+      return
     }
 
     res.writeHead(200, {

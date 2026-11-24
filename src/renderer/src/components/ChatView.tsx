@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ChatMessage, MessageStatus } from '@shared/types'
 import { useChat, type LiveMessage } from '../store/chat'
 import { Composer } from './Composer'
@@ -13,6 +14,10 @@ export function ChatView(): React.JSX.Element {
   const error = useChat((state) => state.error)
   const setError = useChat((state) => state.setError)
   const recovered = useChat((state) => state.boot?.recoveredMessages ?? 0)
+  const panelCollapsed = useChat((state) => state.boot?.config.window.panelCollapsed ?? false)
+  const patchConfig = useChat((state) => state.patchConfig)
+  const setDraft = useChat((state) => state.setDraft)
+  const running = useChat((state) => state.run !== null)
   const [showRecovered, setShowRecovered] = useState(recovered > 0)
 
   const session = sessions.find((item) => item.id === activeSessionId) ?? null
@@ -22,6 +27,17 @@ export function ChatView(): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
 
+  // 短会话直接渲染：多一层包裹只会让测量更脆。
+  // 长会话（>80 条）才启用虚拟化，DOM 里只保留可视区附近的消息。
+  const virtualize = rendered.length > VIRTUALIZE_THRESHOLD
+  const virtualizer = useVirtualizer({
+    count: rendered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 140,
+    overscan: 6,
+    enabled: virtualize
+  })
+
   const onScroll = (): void => {
     const el = scrollRef.current
     if (!el) return
@@ -29,10 +45,15 @@ export function ChatView(): React.JSX.Element {
   }
 
   useEffect(() => {
+    if (!stickToBottom.current) return
+    if (virtualize) {
+      virtualizer.scrollToIndex(rendered.length - 1, { align: 'end' })
+      return
+    }
     const el = scrollRef.current
-    if (!el || !stickToBottom.current) return
+    if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [rendered])
+  }, [rendered, virtualize, virtualizer])
 
 
   return (
@@ -41,6 +62,17 @@ export function ChatView(): React.JSX.Element {
         <span className="min-w-0 flex-1 truncate text-title font-medium">
           {session?.title ?? '新对话'}
         </span>
+        {panelCollapsed && (
+          <button
+            type="button"
+            onClick={() => void patchConfig({ window: { panelCollapsed: false } })}
+            className="rounded px-1.5 py-1 text-fg-subtle hover:text-fg"
+            aria-label="展开参数面板"
+            title="展开参数面板"
+          >
+            <SlidersIcon />
+          </button>
+        )}
         <SessionMenu />
       </header>
 
@@ -77,23 +109,93 @@ export function ChatView(): React.JSX.Element {
 
       <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-6">
         <div className="mx-auto max-w-[760px] py-4">
-          {rendered.length === 0 && (
-            <p className="py-16 text-center text-ui text-fg-subtle">
-              输入一句话开始对话，Enter 发送，Shift+Enter 换行。
-            </p>
+          {rendered.length === 0 && <EmptyState onPick={setDraft} disabled={running} />}
+
+          {virtualize ? (
+            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {virtualizer.getVirtualItems().map((item) => {
+                const message = rendered[item.index]
+                if (!message) return null
+                return (
+                  <div
+                    key={item.key}
+                    data-index={item.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${item.start}px)`
+                    }}
+                  >
+                    <MessageItem message={message} isLastAssistant={message.id === lastAssistantId} />
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            rendered.map((message) => (
+              <MessageItem
+                key={message.id}
+                message={message}
+                isLastAssistant={message.id === lastAssistantId}
+              />
+            ))
           )}
-          {rendered.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              isLastAssistant={message.id === lastAssistantId}
-            />
-          ))}
         </div>
       </div>
 
       <Composer />
     </main>
+  )
+}
+
+/** 超过这个条数才启用虚拟化（docs/01 §4：500 条消息滚动不掉帧） */
+const VIRTUALIZE_THRESHOLD = 80
+
+const EXAMPLES = [
+  '用三句话解释 SQLite 的 WAL 模式为什么适合流式写入',
+  '帮我 review 这段 TypeScript 的类型设计',
+  '把这个需求拆成可执行的开发任务清单'
+]
+
+/** 空态（docs/04 §4.8）：给三个可直接改写的示例，而不是一句干巴巴的提示 */
+function EmptyState({
+  onPick,
+  disabled
+}: {
+  onPick: (text: string) => void
+  disabled: boolean
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-4 py-16">
+      <p className="text-display font-medium text-fg">今天想聊点什么？</p>
+      <div className="flex w-full max-w-[520px] flex-col gap-2">
+        {EXAMPLES.map((example) => (
+          <button
+            key={example}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(example)}
+            className="rounded-md border border-line px-3 py-2 text-left text-ui text-fg-muted hover:border-accent hover:text-fg disabled:opacity-50"
+          >
+            {example}
+          </button>
+        ))}
+      </div>
+      <p className="text-micro text-fg-subtle">Enter 发送，Shift+Enter 换行</p>
+    </div>
+  )
+}
+
+function SlidersIcon(): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <path d="M2 4h10M2 10h10" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="5" cy="4" r="1.6" fill="currentColor" />
+      <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+    </svg>
   )
 }
 

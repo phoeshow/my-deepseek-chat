@@ -2,21 +2,39 @@ import { useRef, useState } from 'react'
 import { useChat } from '../store/chat'
 
 export function Composer(): React.JSX.Element {
-  const [text, setText] = useState('')
+  const text = useChat((state) => state.draft)
+  const setText = useChat((state) => state.setDraft)
   const running = useChat((state) => state.run)
   const send = useChat((state) => state.send)
   const abort = useChat((state) => state.abort)
   const activeSessionId = useChat((state) => state.activeSessionId)
+  const config = useChat((state) => state.boot?.config)
+  const session = useChat((state) =>
+    state.sessions.find((item) => item.id === state.activeSessionId)
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  /**
+   * 三级思考开关的最内层（docs/05 T2）：只影响**下一条**消息，
+   * 发出去之后立刻回到会话/全局生效值，不污染会话设定。
+   */
+  const [thinkingOverride, setThinkingOverride] = useState<boolean | null>(null)
+  const effectiveThinking = session?.thinking ?? config?.defaultThinking ?? false
+  const currentThinking = thinkingOverride ?? effectiveThinking
 
   const canSend = text.trim().length > 0 && !running && Boolean(activeSessionId)
 
   const submit = (): void => {
     if (!canSend) return
     const value = text
+    const overrides =
+      thinkingOverride !== null && thinkingOverride !== effectiveThinking
+        ? { thinking: thinkingOverride }
+        : undefined
     setText('')
-    void send(value)
-    // 发送后立刻把输入框缩回去，避免光标停在高位
+    setThinkingOverride(null)
+    void send(value, overrides)
+    // 发送后把输入框缩回去，避免光标停在高位
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
@@ -53,6 +71,25 @@ export function Composer(): React.JSX.Element {
           disabled={!activeSessionId}
           className="max-h-[200px] min-h-[52px] flex-1 resize-none rounded-lg border border-line bg-surface px-3.5 py-3 text-body text-fg outline-none placeholder:text-fg-subtle focus:border-accent disabled:opacity-60"
         />
+
+        <button
+          type="button"
+          onClick={() => setThinkingOverride(!currentThinking)}
+          aria-pressed={currentThinking}
+          title={
+            thinkingOverride === null
+              ? `深度思考：${currentThinking ? '开' : '关'}（继承会话设定，点击仅对本条生效）`
+              : `深度思考：${currentThinking ? '开' : '关'}（仅本条生效，发送后恢复）`
+          }
+          className={`h-[52px] shrink-0 rounded-lg border px-2.5 text-micro transition-colors ${
+            currentThinking
+              ? 'border-accent bg-accent-subtle text-accent'
+              : 'border-line text-fg-subtle hover:text-fg'
+          }`}
+        >
+          深思
+        </button>
+
         {running ? (
           <button
             type="button"

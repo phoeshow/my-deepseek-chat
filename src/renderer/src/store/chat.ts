@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   AppErrorCode,
+  AppConfigPatch,
   BootstrapInfo,
   ChatFrame,
   ChatMessage,
@@ -16,6 +17,11 @@ export interface LiveMessage {
   reasoning: string
   status: 'streaming' | 'done' | 'error' | 'aborted'
   error?: { code: string; message: string }
+}
+
+/** 本条消息的临时覆盖项（不写回会话设定） */
+export interface SendOverrides {
+  thinking?: boolean
 }
 
 interface RunState {
@@ -34,6 +40,9 @@ interface ChatStore {
   live: Record<string, LiveMessage>
   run: RunState | null
   error: { code: AppErrorCode | string; message: string } | null
+  /** 输入框草稿：空态里的示例卡片需要往里填内容，所以放在 store 而不是组件内部 */
+  draft: string
+  setDraft: (draft: string) => void
 
   init: () => Promise<void>
   setError: (error: { code: string; message: string } | null) => void
@@ -46,11 +55,12 @@ interface ChatStore {
   updateSession: (patch: SessionPatch) => Promise<void>
   removeSession: (id: string) => Promise<void>
 
+  patchConfig: (patch: AppConfigPatch) => Promise<void>
   refreshModels: () => Promise<void>
   saveKey: (apiKey: string) => Promise<void>
   testKey: () => Promise<void>
 
-  send: (text: string) => Promise<void>
+  send: (text: string, overrides?: SendOverrides) => Promise<void>
   abort: () => Promise<void>
   regenerate: (assistantMessageId: string) => Promise<void>
   applyFrame: (frame: ChatFrame) => void
@@ -108,6 +118,9 @@ export const useChat = create<ChatStore>((set, get) => ({
   live: {},
   run: null,
   error: null,
+  draft: '',
+
+  setDraft: (draft) => set({ draft }),
 
   init: async () => {
     try {
@@ -135,8 +148,10 @@ export const useChat = create<ChatStore>((set, get) => ({
       set({ messages: [] })
       return
     }
-    const session = get().sessions.find((item) => item.id === sessionId)
-    const messages = await unwrap(window.api.message.thread(sessionId, session?.activeLeafId ?? null))
+    // 不传 leafId：由主进程按数据库里的 sessions.active_leaf_id 解析。
+    // 渲染层缓存的 activeLeafId 在"end 帧到达但 sessions 还没刷新"时是上一轮的旧值，
+    // 拿它查线程会导致刚生成的回答从界面上消失。
+    const messages = await unwrap(window.api.message.thread(sessionId))
     set({ messages })
   },
 
@@ -178,6 +193,11 @@ export const useChat = create<ChatStore>((set, get) => ({
     }
   },
 
+  patchConfig: async (patch) => {
+    const config = await unwrap(window.api.settings.update(patch))
+    set((state) => ({ boot: state.boot ? { ...state.boot, config } : state.boot }))
+  },
+
   refreshModels: async () => {
     const { models } = await unwrap(window.api.models.refresh())
     set({ models })
@@ -195,7 +215,7 @@ export const useChat = create<ChatStore>((set, get) => ({
     set({ models })
   },
 
-  send: async (text) => {
+  send: async (text, overrides) => {
     const sessionId = get().activeSessionId
     if (!sessionId || get().run) return
     const trimmed = text.trim()
@@ -204,7 +224,12 @@ export const useChat = create<ChatStore>((set, get) => ({
     set({ error: null })
     try {
       const result = await unwrap(
-        window.api.chat.send({ sessionId, parentId: null, text: trimmed })
+        window.api.chat.send({
+          sessionId,
+          parentId: null,
+          text: trimmed,
+          ...(overrides ? { overrides } : {})
+        })
       )
       set({
         run: {

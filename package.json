@@ -21,10 +21,14 @@
     "mock": "node scripts/mock-deepseek.mjs"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.28",
     "better-sqlite3": "^13.2.0",
     "electron-log": "^5.4.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^4.6.0",
     "zod": "^4.6.7",
     "zustand": "^5.1.0"
   },

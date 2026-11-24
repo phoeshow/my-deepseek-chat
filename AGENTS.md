@@ -77,7 +77,8 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 
 1. **pnpm 12 的构建脚本白名单键名是 `allowBuilds`**，写在 `pnpm-workspace.yaml`；旧的 `package.json` → `pnpm.onlyBuiltDependencies` 已完全不被读取（只会打 warning）。
 2. **`electron` 的二进制下载脚本可能没被触发**（`node_modules/electron/dist/` 为空、无 `path.txt`）。补救：`node node_modules/electron/install.js`。判断方法：`ls node_modules/electron/path.txt`。
-3. **Vite 大版本必须与 `@vitejs/plugin-react` 对齐**：plugin-react 6.x 要求 Vite 8（用到 `vite/internal` 导出），装成 Vite 7 会在加载配置时报 `ERR_PACKAGE_PATH_NOT_EXPORTED`。
+3. **e2e 的 mock 端口被残留进程占用**时，会连到旧版本 mock，表现成"莫名其妙的前端断言失败"。`scripts/run-e2e-ui.sh` 已加端口占用检查与就绪等待，看到它就先去清理残留进程。
+4. **Vite 大版本必须与 `@vitejs/plugin-react` 对齐**：plugin-react 6.x 要求 Vite 8（用到 `vite/internal` 导出），装成 Vite 7 会在加载配置时报 `ERR_PACKAGE_PATH_NOT_EXPORTED`。
 
 ## 七、反模式清单（本项目最容易犯的）
 
@@ -94,6 +95,9 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 | 一次性把 M0~M4 全写了 | 严格按里程碑交付，每个里程碑可运行 |
 | 用 xdotool 驱动 Wayland 窗口做 UI 测试 | 合成器不接受合成键事件。用 `--remote-debugging-port` + CDP 的 `Input.dispatchKeyEvent`（见 `scripts/e2e-ui.mjs`） |
 | 递归 CTE 里用 `m.parent_id = t.id` 回溯父节点 | 那是向下找子节点，只会返回叶子一条。正确写法是 `m.id = t.parent_id` |
+| 渲染层拿缓存的 `session.activeLeafId` 去查线程 | 该值在 `end` 帧到达时会落后一轮，新回答会从界面消失。让主进程按数据库的 `active_leaf_id` 解析 |
+| 用 `pkill -f <pattern>`，而 pattern 又出现在同一条命令里 | 会杀掉自己的 shell。把 pattern 写进脚本文件再调用 |
+| 把 Shiki 语言静态 import 进主 chunk | 8 种语言就是 1MB+。走 `shiki/langs/*.mjs` 动态 import |
 
 ## 八、提交与产物
 

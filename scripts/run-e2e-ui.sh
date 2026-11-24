@@ -37,10 +37,30 @@ root.mkdir(parents=True)
 ]}) + "\n", encoding="utf-8")
 PY
 
+# 端口被占用时必须直接失败：否则会连到一个旧的 mock 上，
+# 表现成"莫名其妙的断言失败"，排查成本极高
+if curl -s -m 1 -o /dev/null "http://127.0.0.1:$PORT/models" 2>/dev/null; then
+  echo "✗ 端口 $PORT 已被占用：请先停掉残留的 mock 服务"
+  exit 1
+fi
+
 echo "==> 启动 mock 服务"
 MOCK_PORT="$PORT" node scripts/mock-deepseek.mjs >/tmp/mock-deepseek.log 2>&1 &
 MOCK_PID=$!
-sleep 1
+
+ready=0
+for _ in $(seq 1 30); do
+  if curl -s -m 1 -o /dev/null -H 'authorization: Bearer sk-e2e'       "http://127.0.0.1:$PORT/models" 2>/dev/null; then
+    ready=1
+    break
+  fi
+  sleep 0.3
+done
+if [ "$ready" != "1" ]; then
+  echo "✗ mock 服务未就绪"
+  cat /tmp/mock-deepseek.log 2>/dev/null
+  exit 1
+fi
 
 echo "==> 启动应用（调试端口 $DEBUG_PORT）"
 : >"$LOG"

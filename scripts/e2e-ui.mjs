@@ -78,6 +78,16 @@ const evaluate = async (expression) => {
 
 const bodyText = () => evaluate('document.body.innerText')
 
+/** 轮询等待某个表达式为真（流式/异步高亮后都用它） */
+async function waitFor(expression, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (await evaluate(expression)) return true
+    await sleep(200)
+  }
+  return false
+}
+
 /** 轮询等待页面出现指定文本（重载/异步渲染后都用它） */
 async function waitForText(needle, timeoutMs = 15000) {
   const deadline = Date.now() + timeoutMs
@@ -180,7 +190,79 @@ await evaluate(`document.querySelector('button[aria-label="${flipped}"]')?.click
 await sleep(900)
 check(`再点击恢复为「${initial}」`, (await currentLabel()) === initial, await currentLabel())
 
-console.log('\n[8] 重命名并持久化')
+console.log('\n[7] Markdown 与代码高亮')
+await evaluate(`document.querySelector('textarea').focus()`)
+await client.send('Input.insertText', { text: '给我一段 markdown 示例' })
+await sleep(150)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+check('Markdown 回复已渲染', await waitForText('渲染示例'))
+check('表格渲染为 table 元素', await waitFor(`Boolean(document.querySelector('.markdown-body table'))`))
+// 高亮是按需加载语言后才出现的，必须等 shiki 真正产出 HTML
+check(
+  '代码块已高亮（shiki）',
+  await waitFor(`Boolean(document.querySelector('.shiki-block'))`, 10000)
+)
+check(
+  '代码块语言标签与复制按钮',
+  await waitFor(
+    `[...document.querySelectorAll('button')].some((b) => b.textContent === '复制')`,
+    5000
+  )
+)
+check(
+  '行内代码渲染为 code 元素',
+  await waitFor(`Boolean(document.querySelector('.markdown-body :not(pre) > code'))`, 5000)
+)
+
+console.log('\n[8] 参数面板与预算条')
+check('右栏参数面板存在', (await bodyText()).includes('参数'))
+check('温度控件存在', await evaluate(`Boolean(document.querySelector('#temperature'))`))
+check('上下文预算已渲染', (await bodyText()).includes('上下文'))
+check('缓存命中百分比已渲染', /缓存命中\s*\d+%/.test(await bodyText()))
+
+console.log('\n[9] 本条临时思考开关')
+const pressedBefore = await evaluate(
+  `document.querySelector('button[aria-pressed][title*="深度思考"]')?.getAttribute('aria-pressed')`
+)
+await evaluate(`document.querySelector('button[aria-pressed][title*="深度思考"]')?.click()`)
+await sleep(300)
+const pressedAfter = await evaluate(
+  `document.querySelector('button[aria-pressed][title*="深度思考"]')?.getAttribute('aria-pressed')`
+)
+check(
+  `点击后临时状态翻转（${pressedBefore} → ${pressedAfter}）`,
+  pressedBefore !== pressedAfter
+)
+
+console.log('\n[10] 主题切换')
+await evaluate(
+  `[...document.querySelectorAll('aside button')].find((b) => b.textContent.includes('设置'))?.click()`
+)
+await sleep(500)
+check('设置弹层已打开', (await bodyText()).includes('主题'))
+
+await evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '浅色')?.click()`)
+await sleep(500)
+check('切到浅色（data-theme=light）', (await evaluate(`document.documentElement.dataset.theme`)) === 'light')
+
+await evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '深色')?.click()`)
+await sleep(400)
+check('切回深色（data-theme=dark）', (await evaluate(`document.documentElement.dataset.theme`)) === 'dark')
+
+// 关闭设置弹层：限定在 dialog 内，避免选中标题栏或侧栏里同名的按钮
+await evaluate(`document.querySelector('[role="dialog"] button[aria-label="关闭设置"]')?.click()`)
+await sleep(400)
+check('设置弹层已关闭', !(await bodyText()).includes('DeepSeek API Key'))
+
+console.log('\n[11] 重命名并持久化')
 await evaluate(
   `[...document.querySelectorAll('aside button')].find((b) => b.title === '双击重命名')?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`
 )
@@ -206,7 +288,7 @@ await client.send('Page.reload')
 await sleep(2500)
 check('重载后标题仍在（已落库）', (await bodyText()).includes('重命名后的标题'))
 
-console.log('\n[9] 模型切换持久化')
+console.log('\n[12] 模型切换持久化')
 await evaluate(
   `[...document.querySelectorAll('header button')].find((b) => b.textContent.includes('Mock Flash'))?.click()`
 )
@@ -234,7 +316,7 @@ const shot = await client.send('Page.captureScreenshot', { format: 'png' })
 await writeFile(SHOT_PATH, Buffer.from(shot.data, 'base64'))
 console.log(`截图 → ${SHOT_PATH}`)
 
-console.log('\n[10] 关闭按钮')
+console.log('\n[13] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

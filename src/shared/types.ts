@@ -25,6 +25,8 @@ export interface TokenUsage {
   cacheMiss?: number
   firstTokenMs?: number
   durationMs?: number
+  /** 思维链首帧到末帧的耗时，用于「已思考 2.1s」 */
+  reasoningMs?: number
 }
 
 export interface ChatMessage {
@@ -131,6 +133,16 @@ export interface WindowState {
   panelCollapsed: boolean
 }
 
+/** 设置补丁：只允许改动这些键，避免渲染层顺手改掉不该改的东西 */
+export interface AppConfigPatch {
+  theme?: ThemeMode
+  defaultModelId?: string | null
+  defaultThinking?: boolean
+  defaultEffort?: ReasoningEffort
+  autoTitle?: boolean
+  window?: Partial<WindowState>
+}
+
 export interface AppConfig {
   version: number
   baseUrl: string
@@ -180,6 +192,15 @@ export interface AppApi {
 
   message: {
     thread(sessionId: string, leafId?: string | null): Promise<Result<ChatMessage[]>>
+  }
+
+  settings: {
+    update(patch: AppConfigPatch): Promise<Result<AppConfig>>
+  }
+
+  system: {
+    /** 外链一律经主进程校验协议 + 二次确认，渲染层不做导航 */
+    openExternal(url: string): Promise<Result<{ opened: boolean }>>
   }
 
   /** 自绘标题栏所需的窗口控制（docs/04 §2.1） */

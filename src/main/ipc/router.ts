@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { z } from 'zod'
 import type { AppErrorCode, BootstrapInfo, Result } from '@shared/types'
 import { recoveredMessageCount } from '../db'
@@ -9,7 +9,7 @@ import * as chat from '../chat/service'
 import { logger } from '../logger'
 import { fetchModels, getModels, rememberModels } from '../services/models'
 import { clearKey, encryptionStatus, getKey, hasKey, setKey } from '../services/secret'
-import { getConfig } from '../services/settings'
+import { getConfig, patchConfig } from '../services/settings'
 import { readUiState } from '../window'
 
 export interface RouterContext {
@@ -35,6 +35,29 @@ export function registerIpc(ctx: RouterContext): void {
     chromeVersion: process.versions.chrome ?? '',
     platform: process.platform
   }))
+
+  // ---- 设置 ----
+  handle(
+    'settings:update',
+    z.object({
+      patch: z.object({
+        theme: z.enum(['system', 'light', 'dark']).optional(),
+        defaultModelId: z.string().min(1).nullable().optional(),
+        defaultThinking: z.boolean().optional(),
+        defaultEffort: z.enum(['low', 'high', 'max']).optional(),
+        autoTitle: z.boolean().optional(),
+        window: z
+          .object({
+            sidebarWidth: z.number().int().min(160).max(500).optional(),
+            panelWidth: z.number().int().min(200).max(600).optional(),
+            sidebarCollapsed: z.boolean().optional(),
+            panelCollapsed: z.boolean().optional()
+          })
+          .optional()
+      })
+    }),
+    (input) => patchConfig(input.patch)
+  )
 
   // ---- 密钥 ----
   handle('secret:status', z.void(), async () => ({
@@ -161,6 +184,31 @@ export function registerIpc(ctx: RouterContext): void {
     chat.regenerate(input.assistantMessageId)
   )
 
+  // ---- 外链（docs/01 R5）----
+  handle('shell:open-external', z.object({ url: z.string().url().max(2048) }), async (input) => {
+    const parsed = new URL(input.url)
+    // 只放行 http(s)：file:/javascript: 之类的协议会变成任意代码执行入口
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('只允许打开 http(s) 链接')
+    }
+    const win = ctx.getWindow()
+    const options = {
+      type: 'question' as const,
+      buttons: ['在浏览器中打开', '取消'],
+      defaultId: 1,
+      cancelId: 1,
+      message: '在外部浏览器中打开这个链接？',
+      detail: input.url
+    }
+    const { response } = win
+      ? await dialog.showMessageBox(win, options)
+      : await dialog.showMessageBox(options)
+
+    if (response !== 0) return { opened: false }
+    await shell.openExternal(input.url)
+    return { opened: true }
+  })
+
   // ---- 自绘标题栏（docs/04 §2.1）----
   handle('window:minimize', z.void(), () => {
     ctx.getWindow()?.minimize()
@@ -185,7 +233,7 @@ export function registerIpc(ctx: RouterContext): void {
     return win ? readUiState(win) : { maximized: false, focused: false }
   })
 
-  logger.info('[ipc] registered 19 channels')
+  logger.info('[ipc] registered 21 channels')
 }
 
 /**

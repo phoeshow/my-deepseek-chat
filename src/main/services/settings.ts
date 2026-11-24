@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'node:path'
 import { z } from 'zod'
 import { DEFAULT_CONFIG } from '@shared/defaults'
-import type { AppConfig } from '@shared/types'
+import type { AppConfig, AppConfigPatch, WindowState } from '@shared/types'
 import { logger } from '../logger'
 
 /**
@@ -72,10 +72,21 @@ export function getConfig(): AppConfig {
   return config
 }
 
-export function updateConfig(patch: Partial<AppConfig>): AppConfig {
-  config = { ...config, ...patch, version: DEFAULT_CONFIG.version }
+/** window 允许局部更新，其余键整体替换 */
+type ConfigUpdate = Partial<Omit<AppConfig, 'window'>> & { window?: Partial<WindowState> }
+
+export function updateConfig(patch: ConfigUpdate): AppConfig {
+  // window 是嵌套对象：整体替换会把没传的键清空，所以做一层合并
+  const window: WindowState = patch.window ? { ...config.window, ...patch.window } : config.window
+  const { window: _ignored, ...rest } = patch
+  void _ignored
+  config = { ...config, ...rest, window, version: DEFAULT_CONFIG.version }
   saveConfig()
   return config
+}
+
+export function patchConfig(patch: AppConfigPatch): AppConfig {
+  return updateConfig({ ...patch })
 }
 
 /** 窗口状态变化非常频繁（拖拽时每帧都可能触发），由调用方负责节流 */
