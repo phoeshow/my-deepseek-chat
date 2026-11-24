@@ -2,7 +2,7 @@
 
 本地运行的 DeepSeek 桌面聊天助手。Electron + React + TypeScript，数据全部留在本机。
 
-> 当前状态：**设计阶段**。代码尚未开始，设计文档已定稿（基线 v1.0）。
+> 当前状态：**v1.0.0 已完成**。M0–M4 五个里程碑全部交付，设计与实现文档同步。
 
 ## 文档
 
@@ -26,8 +26,32 @@
 - **协议不写死**：模型名与能力运行时 `GET /models` 拉取，本地缓存兜底
 - **树形会话**：v1 只露主线，为将来的消息编辑与版本切换留零迁移路径
 
-## 下一步
+## 构建产物
 
-按 [docs/05-路线图](./docs/05-路线图.md) 的 **M0** 开始：脚手架 + better-sqlite3 + 迁移 + 单实例窗口。
+```bash
+pnpm dist        # 产出 release/ 下的 AppImage 与 deb
+```
+
+| 产物 | 适用 | 安装/运行 |
+|---|---|---|
+| `release/DeepSeek Chat-1.0.0.AppImage` | 任意发行版 | `chmod +x` 后直接运行 |
+| `release/my-deepseek-chat_1.0.0_amd64.deb` | Debian / Ubuntu / Mint | `sudo apt install ./my-deepseek-chat_1.0.0_amd64.deb` |
+
+两者共用同一份 `~/.config/my-deepseek-chat`：先用开发态攒的对话与 API Key 会直接带过去。
+
+## 开发
+
+```bash
+pnpm install     # 首次安装（若 electron 二进制缺失见 AGENTS.md §6 的坑）
+pnpm dev         # 开发模式（HMR）
+pnpm typecheck   # 类型检查
+pnpm test:migrations  # 迁移测试（20 项）
+pnpm smoke       # 主进程冒烟（48 项）
+pnpm e2e:ui      # UI 端到端（40 项，CDP 驱动真实键盘事件）
+```
 
 包管理器约定 **pnpm**；改原生依赖后需跑 `electron-rebuild`（见 AGENTS.md §6）。
+
+## 后续
+
+v1.1 backlog 见 [docs/05-路线图](./docs/05-路线图.md) §3：全文搜索 UI（索引已就绪）、消息版本切换、用量仪表盘、编辑消息分叉等。
