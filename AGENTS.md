@@ -65,6 +65,8 @@ pnpm typecheck    # tsc --noEmit，分 node / web 两侧
 pnpm build        # typecheck + 产物输出到 out/
 pnpm rebuild      # electron-rebuild -f -w better-sqlite3（改原生依赖后必须跑）
 pnpm preview      # 用生产产物启动
+pnpm dist         # 打 Linux 产物（AppImage + tar.gz，输出 release/）
+                  # 注意：--linux 不带参数只走默认目标，脚本里必须显式列出
 
 pnpm test:migrations # 迁移测试：为每个历史版本造库 → 升级 → 断言数据/幂等/原子回滚/FTS 回填
 pnpm smoke        # 主进程冒烟：真 ChatService + SQLite + 帧广播，自起 mock SSE，数据写临时目录

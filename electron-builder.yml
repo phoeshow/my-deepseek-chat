@@ -19,7 +19,10 @@ asarUnpack:
 
 linux:
   target:
+    # AppImage 依赖 FUSE2（Arch 默认只有 fuse3，双击会报 libfuse.so.2 缺失），
+    # 因此同时产出不依赖 FUSE、无需 root 的 tar.gz
     - AppImage
+    - tar.gz
   category: Utility
   icon: build/icon.png
   synopsis: 本地运行的 DeepSeek 桌面聊天助手

@@ -20,7 +20,7 @@
     "e2e:ui": "bash scripts/run-e2e-ui.sh",
     "mock": "node scripts/mock-deepseek.mjs",
     "test:migrations": "esbuild scripts/test-migrations.ts --bundle --platform=node --format=cjs --alias:@shared=./src/shared --alias:@main=./src/main --external:better-sqlite3 --external:electron --outfile=out/smoke/test-migrations.cjs --log-level=warning && electron out/smoke/test-migrations.cjs",
-    "dist": "pnpm build && electron-builder --linux AppImage",
+    "dist": "pnpm build && electron-builder --linux AppImage tar.gz",
     "dist:dir": "pnpm build && electron-builder --dir"
   },
   "dependencies": {
