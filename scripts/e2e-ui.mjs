@@ -131,6 +131,48 @@ await evaluate(
 await sleep(300)
 check('展开后可见 reasoning 正文', (await bodyText()).includes(EXPECTED_REASONING))
 
+console.log('\n[6] 自绘标题栏')
+const hasClose = await evaluate(`Boolean(document.querySelector('button[aria-label="关闭"]'))`)
+const hasMinimize = await evaluate(`Boolean(document.querySelector('button[aria-label="最小化"]'))`)
+check('存在最小化与关闭按钮', hasClose && hasMinimize)
+
+// 不假设初始是否已最大化：平铺式桌面（GNOME 自动平铺）会在 show 后把窗口最大化，
+// 图标必须跟随主进程真实状态，而不是本地假设。所以只断言“相对翻转”。
+const currentLabel = () =>
+  evaluate(
+    `document.querySelector('button[aria-label="还原"]') ? '还原' : document.querySelector('button[aria-label="最大化"]') ? '最大化' : ''`
+  )
+
+const initial = await currentLabel()
+check('最大化按钮有明确状态', initial === '最大化' || initial === '还原', initial)
+
+await evaluate(`document.querySelector('button[aria-label="${initial}"]')?.click()`)
+await sleep(900)
+const flipped = await currentLabel()
+check(
+  `点击后状态翻转（${initial} → ${flipped || '无'}）`,
+  (initial === '最大化' && flipped === '还原') || (initial === '还原' && flipped === '最大化'),
+  flipped
+)
+
+await evaluate(`document.querySelector('button[aria-label="${flipped}"]')?.click()`)
+await sleep(900)
+check(`再点击恢复为「${initial}」`, (await currentLabel()) === initial, await currentLabel())
+
+console.log('\n[7] 关闭按钮')
+await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
+let closed = false
+for (let attempt = 0; attempt < 24; attempt += 1) {
+  await sleep(250)
+  try {
+    await fetch(`${CDP_ENDPOINT}/json/list`)
+  } catch {
+    closed = true
+    break
+  }
+}
+check('点击关闭后应用进程退出', closed)
+
 console.log(`\n结果：${failures === 0 ? '全部通过' : `${failures} 项失败`}`)
 client.ws.close()
 process.exit(failures === 0 ? 0 : 1)

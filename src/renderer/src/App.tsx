@@ -4,6 +4,7 @@ import { ChatView } from './components/ChatView'
 import { Onboarding } from './components/Onboarding'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
+import { TitleBar } from './components/TitleBar'
 
 export function App(): React.JSX.Element {
   const ready = useChat((state) => state.ready)
@@ -29,16 +30,33 @@ export function App(): React.JSX.Element {
 
   if (!ready || !boot) {
     return (
-      <div className="flex h-full items-center justify-center text-ui text-fg-subtle">正在初始化…</div>
+      <div className="flex h-full flex-col">
+        <TitleBar />
+        <div className="flex flex-1 items-center justify-center text-ui text-fg-subtle">
+          正在初始化…
+        </div>
+      </div>
     )
   }
 
-  if (!boot.hasKey) return <Onboarding />
+  if (!boot.hasKey) {
+    return (
+      <div className="flex h-full flex-col">
+        <TitleBar />
+        <div className="min-h-0 flex-1">
+          <Onboarding />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex h-full text-ui">
-      <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
-      <ChatView onOpenSettings={() => setSettingsOpen(true)} />
+    <div className="flex h-full flex-col text-ui">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">
+        <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+        <ChatView onOpenSettings={() => setSettingsOpen(true)} />
+      </div>
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

@@ -19,6 +19,15 @@
     overflow: hidden;
   }
 
+  /* 无边框窗口的拖拽区。集中定义，组件里只加类名，不手写 -webkit-app-region */
+  .app-drag {
+    -webkit-app-region: drag;
+  }
+
+  .app-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
   /* 焦点环统一走令牌；AGENTS.md §3.10 禁止 outline: none 裸奔 */
   :focus-visible {
     outline: 2px solid var(--color-accent);

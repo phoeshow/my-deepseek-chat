@@ -1,7 +1,7 @@
 import { app, BrowserWindow, nativeTheme, screen, session } from 'electron'
 import { join } from 'node:path'
 import { MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH } from '@shared/defaults'
-import type { WindowState } from '@shared/types'
+import type { WindowState, WindowUiState } from '@shared/types'
 import { logger } from './logger'
 
 /**
@@ -56,8 +56,16 @@ export function createMainWindow(
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
     show: false,
+    // 自绘标题栏（docs/04 §2.1）：去掉系统标题栏，窗口控制由渲染层发起。
+    // Linux/Windows 用 titleBarStyle:'hidden' —— 实测同样能隐藏原生标题栏，
+    // 但保留系统边框，因此边缘拖拽缩放是原生的（frame:false 在 Wayland 下会失去缩放能力）。
+    // macOS 用 frame:false：否则 titleBarStyle:'hidden' 会保留红色交通灯，
+    // 与我们自绘的三个按钮重复。
+    ...(process.platform === 'darwin'
+      ? { frame: false as const }
+      : { titleBarStyle: 'hidden' as const }),
+    resizable: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0F0F10' : '#FAFAFA',
-    titleBarStyle: 'default',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -114,6 +122,17 @@ export function createMainWindow(
   win.on('unmaximize', schedule)
   win.on('close', flushState)
 
+  // 标题栏图标需要实时跟随最大化/焦点状态
+  const pushUiState = (): void => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    win.webContents.send('window:state', readUiState(win))
+  }
+  win.on('maximize', pushUiState)
+  win.on('unmaximize', pushUiState)
+  win.on('focus', pushUiState)
+  win.on('blur', pushUiState)
+  win.webContents.on('did-finish-load', pushUiState)
+
   win.once('ready-to-show', () => {
     if (state.maximized) win.maximize()
     win.show()
@@ -149,6 +168,17 @@ export function createMainWindow(
   } else {
     void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // 去掉了应用菜单，DevTools 的默认快捷键也跟着没了；开发期手动补回
+  win.webContents.on('before-input-event', (event, input) => {
+    if (app.isPackaged || input.type !== 'keyDown') return
+    const isDevTools =
+      input.key === 'F12' ||
+      ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i')
+    if (!isDevTools) return
+    event.preventDefault()
+    win.webContents.toggleDevTools()
+  })
 
   logger.info('[window] created', { dev: Boolean(devUrl), bounds: win.getBounds() })
 
@@ -219,6 +249,11 @@ function sampleBounds(
     y: bounds.y,
     maximized
   }
+}
+
+/** 读取窗口 UI 状态。只用于标题栏图标，不参与持久化 */
+export function readUiState(win: BrowserWindow): WindowUiState {
+  return { maximized: win.isMaximized(), focused: win.isFocused() }
 }
 
 /** Windows 任务栏分组需要显式 AppUserModelID，macOS/Linux 无副作用 */

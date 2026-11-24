@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import { setFrameSink } from './chat/service'
 import { closeDatabase, initDatabase } from './db'
 import { registerIpc } from './ipc/router'
@@ -47,6 +47,7 @@ function onReady(): void {
   const dataDir = app.getPath('userData')
 
   setAppIdentity()
+  installApplicationMenu()
   initDatabase(dataDir)
   initSettings(dataDir)
   initSecret(dataDir)
@@ -55,7 +56,7 @@ function onReady(): void {
   // 严格 CSP 只在打包后注入：开发环境的 Vite HMR 需要 ws 与 eval
   if (app.isPackaged) applyCsp()
 
-  registerIpc({ dataDir })
+  registerIpc({ dataDir, getWindow: () => handle?.window ?? null })
   openWindow()
 
   logger.info('[app] ready', {
@@ -63,6 +64,22 @@ function onReady(): void {
     version: app.getVersion(),
     packaged: app.isPackaged
   })
+}
+
+/**
+ * 菜单策略（docs/02 §8）：
+ * - Linux / Windows：彻底去掉菜单栏，窗口控制交给自绘标题栏
+ * - macOS：必须保留最小应用菜单，否则 Cmd+C / Cmd+V / Cmd+Z 等编辑快捷键会失效
+ * 去掉菜单后 DevTools 的默认快捷键也没了，开发期用 window.ts 里的 before-input-event 补回。
+ */
+function installApplicationMenu(): void {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+    return
+  }
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }])
+  )
 }
 
 function openWindow(): void {

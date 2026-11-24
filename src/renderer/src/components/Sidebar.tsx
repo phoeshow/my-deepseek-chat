@@ -16,11 +16,8 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
 
   return (
     <aside className="flex w-[240px] shrink-0 flex-col border-r border-line bg-canvas">
-      <div className="flex h-12 shrink-0 items-center px-4">
-        <span className="text-title font-medium">DeepSeek</span>
-      </div>
-
-      <div className="px-3 pb-2">
+      {/* 品牌区已上提到 TitleBar（docs/04 §2.1），这里直接从新建按钮开始 */}
+      <div className="px-3 pt-3 pb-2">
         <button
           type="button"
           onClick={() => void createSession()}

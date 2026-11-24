@@ -1,4 +1,4 @@
-import { app, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { z } from 'zod'
 import type { AppErrorCode, BootstrapInfo, Result } from '@shared/types'
 import { countSessions } from '../db/repo/session'
@@ -9,9 +9,11 @@ import { logger } from '../logger'
 import { fetchModels, getModels, rememberModels } from '../services/models'
 import { clearKey, encryptionStatus, getKey, hasKey, setKey } from '../services/secret'
 import { getConfig } from '../services/settings'
+import { readUiState } from '../window'
 
 export interface RouterContext {
   dataDir: string
+  getWindow: () => BrowserWindow | null
 }
 
 /** 所有入参都必须过 zod（AGENTS.md §3.8），这里是唯一的校验入口 */
@@ -140,7 +142,31 @@ export function registerIpc(ctx: RouterContext): void {
     chat.regenerate(input.assistantMessageId)
   )
 
-  logger.info('[ipc] registered 15 channels')
+  // ---- 自绘标题栏（docs/04 §2.1）----
+  handle('window:minimize', z.void(), () => {
+    ctx.getWindow()?.minimize()
+    return { ok: true as const }
+  })
+
+  handle('window:toggle-maximize', z.void(), () => {
+    const win = ctx.getWindow()
+    if (!win) return { maximized: false }
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
+    return { maximized: win.isMaximized() }
+  })
+
+  handle('window:close', z.void(), () => {
+    ctx.getWindow()?.close()
+    return { ok: true as const }
+  })
+
+  handle('window:get-state', z.void(), () => {
+    const win = ctx.getWindow()
+    return win ? readUiState(win) : { maximized: false, focused: false }
+  })
+
+  logger.info('[ipc] registered 18 channels')
 }
 
 /**

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppApi, BootstrapInfo, ChatFrame, Result } from '@shared/types'
+import type { AppApi, BootstrapInfo, ChatFrame, Result, WindowUiState } from '@shared/types'
 
 /**
  * 白名单桥。只暴露具体方法，不暴露 ipcRenderer 本体——
@@ -43,6 +43,20 @@ const api: AppApi = {
       ipcRenderer.on('chat:frame', wrapped)
       return () => {
         ipcRenderer.off('chat:frame', wrapped)
+      }
+    }
+  },
+
+  windowControls: {
+    minimize: () => invoke('window:minimize'),
+    toggleMaximize: () => invoke('window:toggle-maximize'),
+    close: () => invoke('window:close'),
+    getState: () => invoke('window:get-state'),
+    onStateChange: (listener) => {
+      const wrapped = (_event: unknown, state: WindowUiState): void => listener(state)
+      ipcRenderer.on('window:state', wrapped)
+      return () => {
+        ipcRenderer.off('window:state', wrapped)
       }
     }
   }

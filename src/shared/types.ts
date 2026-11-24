@@ -129,6 +129,12 @@ export interface AppConfig {
   window: WindowState
 }
 
+/** 窗口 UI 状态，供自绘标题栏显示最大化/还原图标 */
+export interface WindowUiState {
+  maximized: boolean
+  focused: boolean
+}
+
 /**
  * preload 通过 contextBridge 暴露给渲染层的全部能力（window.api）。
  * 这里是白名单的唯一事实来源：新增通道必须同时改这个接口和 ipc/router.ts。
@@ -160,6 +166,15 @@ export interface AppApi {
 
   message: {
     thread(sessionId: string, leafId?: string | null): Promise<Result<ChatMessage[]>>
+  }
+
+  /** 自绘标题栏所需的窗口控制（docs/04 §2.1） */
+  windowControls: {
+    minimize(): Promise<Result<{ ok: true }>>
+    toggleMaximize(): Promise<Result<{ maximized: boolean }>>
+    close(): Promise<Result<{ ok: true }>>
+    getState(): Promise<Result<WindowUiState>>
+    onStateChange(listener: (state: WindowUiState) => void): () => void
   }
 
   chat: {
