@@ -63,7 +63,13 @@ pnpm typecheck    # tsc --noEmit，分 node / web 两侧
 pnpm build        # typecheck + 产物输出到 out/
 pnpm rebuild      # electron-rebuild -f -w better-sqlite3（改原生依赖后必须跑）
 pnpm preview      # 用生产产物启动
+
+pnpm smoke        # 主进程冒烟：真 ChatService + SQLite + 帧广播，自起 mock SSE，数据写临时目录
+pnpm e2e:ui       # UI 端到端：CDP 驱动真实键盘事件，断言流式渲染（自动起 mock、临时 userData）
+pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传 sk-fail-<status> 可注入故障）
 ```
+
+**验证手段的优先级**：`smoke` 覆盖后端链路（协议/落库/中止/重生成/并发），`e2e:ui` 覆盖渲染层（帧合并、折叠块、输入框状态）。两者都不需要真实 API Key——因此改完代码先跑这两条，再让用户用真 Key 验收。
 
 包管理器约定为 **pnpm 12**。若改用 npm/yarn，同步更新本节。
 
@@ -86,6 +92,8 @@ pnpm preview      # 用生产产物启动
 | 引入 antd/MUI 走捷径 | Radix 原语 + 自写样式 |
 | 主题色写死 hex | 用 `tokens.css` 的变量 |
 | 一次性把 M0~M4 全写了 | 严格按里程碑交付，每个里程碑可运行 |
+| 用 xdotool 驱动 Wayland 窗口做 UI 测试 | 合成器不接受合成键事件。用 `--remote-debugging-port` + CDP 的 `Input.dispatchKeyEvent`（见 `scripts/e2e-ui.mjs`） |
+| 递归 CTE 里用 `m.parent_id = t.id` 回溯父节点 | 那是向下找子节点，只会返回叶子一条。正确写法是 `m.id = t.parent_id` |
 
 ## 八、提交与产物
 

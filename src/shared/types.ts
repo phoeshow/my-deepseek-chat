@@ -6,6 +6,86 @@
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ReasoningEffort = 'low' | 'high' | 'max'
 
+/** GET /models 的归一化结果。contextWindow 可能缺失，缺失时 UI 不做预算提示 */
+export interface ModelInfo {
+  id: string
+  name: string
+  contextWindow: number | null
+  maxOutputTokens: number | null
+}
+
+export type MessageRole = 'system' | 'user' | 'assistant'
+export type MessageStatus = 'streaming' | 'complete' | 'aborted' | 'error'
+
+export interface TokenUsage {
+  prompt: number
+  completion: number
+  reasoning?: number
+  cacheHit?: number
+  cacheMiss?: number
+  firstTokenMs?: number
+  durationMs?: number
+}
+
+export interface ChatMessage {
+  id: string
+  sessionId: string
+  parentId: string | null
+  role: MessageRole
+  content: string
+  reasoning: string | null
+  status: MessageStatus
+  modelId: string | null
+  finishReason: string | null
+  error: { code: AppErrorCode; message: string } | null
+  tokens: TokenUsage | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SessionSummary {
+  id: string
+  title: string
+  modelId: string | null
+  thinking: boolean | null
+  effort: ReasoningEffort | null
+  activeLeafId: string | null
+  createdAt: number
+  updatedAt: number
+  archivedAt: number | null
+  messageCount: number
+}
+
+export interface SendParams {
+  sessionId: string
+  parentId: string | null
+  text: string
+  overrides?: {
+    thinking?: boolean
+    effort?: ReasoningEffort
+    temperature?: number
+    maxTokens?: number
+  }
+}
+
+/**
+ * 主进程 → 渲染层的流式帧协议（docs/02 §4.3）。
+ * 渲染层只需处理这 6 种，SSE 细节全部封在主进程。
+ */
+export type ChatFrame =
+  | { requestId: string; type: 'start'; assistantMessageId: string; startedAt: number }
+  | { requestId: string; type: 'think'; delta: string }
+  | { requestId: string; type: 'text'; delta: string }
+  | { requestId: string; type: 'usage'; usage: TokenUsage }
+  | {
+      requestId: string
+      type: 'end'
+      reason: 'stop' | 'length' | 'aborted'
+      usage?: TokenUsage
+      endedAt: number
+    }
+  | { requestId: string; type: 'error'; code: AppErrorCode; message: string; retryable: boolean }
+
 /** 错误码集合，与 docs/02-系统架构.md §7 一一对应 */
 export type AppErrorCode =
   | 'AUTH_INVALID'
@@ -55,6 +135,44 @@ export interface AppConfig {
  */
 export interface AppApi {
   bootstrap(): Promise<Result<BootstrapInfo>>
+
+  secret: {
+    status(): Promise<Result<EncryptionStatus & { hasKey: boolean }>>
+    set(apiKey: string): Promise<Result<{ hasKey: boolean }>>
+    clear(): Promise<Result<{ hasKey: boolean }>>
+    /** 在主进程内实调 GET /models，验证 Key 与 baseUrl 是否可用 */
+    test(): Promise<Result<{ modelCount: number; models: ModelInfo[] }>>
+  }
+
+  models: {
+    refresh(): Promise<Result<{ models: ModelInfo[]; source: 'remote' | 'cache' }>>
+  }
+
+  session: {
+    list(): Promise<Result<SessionSummary[]>>
+    create(input?: {
+      modelId?: string | null
+      thinking?: boolean | null
+    }): Promise<Result<SessionSummary>>
+    rename(id: string, title: string): Promise<Result<SessionSummary>>
+    remove(id: string): Promise<Result<{ id: string }>>
+  }
+
+  message: {
+    thread(sessionId: string, leafId?: string | null): Promise<Result<ChatMessage[]>>
+  }
+
+  chat: {
+    send(
+      params: SendParams
+    ): Promise<Result<{ requestId: string; userMessageId: string; assistantMessageId: string }>>
+    abort(requestId: string): Promise<Result<{ aborted: boolean }>>
+    regenerate(
+      assistantMessageId: string
+    ): Promise<Result<{ requestId: string; assistantMessageId: string }>>
+    /** 订阅流式帧，返回取消订阅函数 */
+    onFrame(listener: (frame: ChatFrame) => void): () => void
+  }
 }
 
 /** 操作系统密钥链的可用性，由 SecretService 探测（Electron 45 的异步 API） */

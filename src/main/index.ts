@@ -1,7 +1,9 @@
 import { app, BrowserWindow } from 'electron'
+import { setFrameSink } from './chat/service'
 import { closeDatabase, initDatabase } from './db'
 import { registerIpc } from './ipc/router'
 import { logger } from './logger'
+import { initModels } from './services/models'
 import { initSecret } from './services/secret'
 import { getConfig, initSettings, updateWindowState } from './services/settings'
 import { applyCsp, createMainWindow, setAppIdentity } from './window'
@@ -48,6 +50,7 @@ function onReady(): void {
   initDatabase(dataDir)
   initSettings(dataDir)
   initSecret(dataDir)
+  initModels(dataDir)
 
   // 严格 CSP 只在打包后注入：开发环境的 Vite HMR 需要 ws 与 eval
   if (app.isPackaged) applyCsp()
@@ -64,4 +67,14 @@ function onReady(): void {
 
 function openWindow(): void {
   handle = createMainWindow(getConfig().window, updateWindowState)
+  wireFrameSink()
+}
+
+/** 流式帧的唯一出口：窗口重建后也要重新绑定 */
+function wireFrameSink(): void {
+  setFrameSink((frame) => {
+    const win = handle?.window
+    if (!win || win.isDestroyed()) return
+    win.webContents.send('chat:frame', frame)
+  })
 }
