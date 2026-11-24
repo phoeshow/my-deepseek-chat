@@ -78,6 +78,16 @@ const evaluate = async (expression) => {
 
 const bodyText = () => evaluate('document.body.innerText')
 
+/** 轮询等待页面出现指定文本（重载/异步渲染后都用它） */
+async function waitForText(needle, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if ((await bodyText()).includes(needle)) return true
+    await sleep(250)
+  }
+  return false
+}
+
 let failures = 0
 const check = (name, ok, detail) => {
   if (ok) {
@@ -170,13 +180,61 @@ await evaluate(`document.querySelector('button[aria-label="${flipped}"]')?.click
 await sleep(900)
 check(`再点击恢复为「${initial}」`, (await currentLabel()) === initial, await currentLabel())
 
+console.log('\n[8] 重命名并持久化')
+await evaluate(
+  `[...document.querySelectorAll('aside button')].find((b) => b.title === '双击重命名')?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`
+)
+await sleep(300)
+check('双击后进入编辑态', await evaluate(`Boolean(document.querySelector('aside input'))`))
+
+await evaluate(`document.querySelector('aside input')?.select()`)
+await client.send('Input.insertText', { text: '重命名后的标题' })
+await sleep(200)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+await sleep(600)
+check('左栏显示新标题', (await bodyText()).includes('重命名后的标题'))
+
+await client.send('Page.reload')
+await sleep(2500)
+check('重载后标题仍在（已落库）', (await bodyText()).includes('重命名后的标题'))
+
+console.log('\n[9] 模型切换持久化')
+await evaluate(
+  `[...document.querySelectorAll('header button')].find((b) => b.textContent.includes('Mock Flash'))?.click()`
+)
+await sleep(400)
+check('会话设定弹层出现', (await bodyText()).includes('思考模式'))
+
+await evaluate(
+  `[...document.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent.includes('Mock Pro'))?.click()`
+)
+await sleep(600)
+check(
+  '模型胶囊更新为 Mock Pro',
+  await evaluate(
+    `[...document.querySelectorAll('header button')].some((b) => b.textContent.includes('Mock Pro'))`
+  )
+)
+
+await client.send('Page.reload')
+await sleep(2500)
+check('重载后仍是 Mock Pro（会话级持久化）', await waitForText('Mock Pro', 8000))
+
 // 用 CDP 自己截图：不依赖 grim/scrot，且能在关闭窗口前留下证据
 await client.send('Page.enable')
 const shot = await client.send('Page.captureScreenshot', { format: 'png' })
 await writeFile(SHOT_PATH, Buffer.from(shot.data, 'base64'))
 console.log(`截图 → ${SHOT_PATH}`)
 
-console.log('\n[7] 关闭按钮')
+console.log('\n[10] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

@@ -5,6 +5,7 @@ import type {
   ChatFrame,
   ChatMessage,
   ModelInfo,
+  SessionPatch,
   SessionSummary
 } from '@shared/types'
 import { IpcError, unwrap } from '../lib/ipc'
@@ -41,6 +42,8 @@ interface ChatStore {
   refreshThread: () => Promise<void>
   selectSession: (id: string) => Promise<void>
   createSession: () => Promise<void>
+  renameSession: (id: string, title: string) => Promise<void>
+  updateSession: (patch: SessionPatch) => Promise<void>
   removeSession: (id: string) => Promise<void>
 
   refreshModels: () => Promise<void>
@@ -146,6 +149,22 @@ export const useChat = create<ChatStore>((set, get) => ({
     const session = await unwrap(window.api.session.create({}))
     await get().refreshSessions()
     await get().selectSession(session.id)
+  },
+
+  renameSession: async (id, title) => {
+    const updated = await unwrap(window.api.session.rename(id, title))
+    set((state) => ({
+      sessions: state.sessions.map((item) => (item.id === updated.id ? updated : item))
+    }))
+  },
+
+  updateSession: async (patch) => {
+    const id = get().activeSessionId
+    if (!id) return
+    const updated = await unwrap(window.api.session.update(id, patch))
+    set((state) => ({
+      sessions: state.sessions.map((item) => (item.id === updated.id ? updated : item))
+    }))
   },
 
   removeSession: async (id) => {

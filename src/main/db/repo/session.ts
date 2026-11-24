@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { SessionSummary } from '@shared/types'
+import type { SessionPatch, SessionSummary } from '@shared/types'
 import { getDb } from '../index'
 
 interface SessionRow {
@@ -33,6 +33,9 @@ function toSummary(row: SessionRow): SessionSummary {
     modelId: row.model_id,
     thinking: row.thinking === null ? null : row.thinking === 1,
     effort: (row.effort as SessionSummary['effort']) ?? null,
+    temperature: row.temperature,
+    maxTokens: row.max_tokens,
+    systemPrompt: row.system_prompt,
     activeLeafId: row.active_leaf_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -84,6 +87,37 @@ export function renameSession(id: string, title: string): SessionSummary {
   getDb()
     .prepare('UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?')
     .run(trimmed.slice(0, 120), Date.now(), id)
+  return mustGetSession(id)
+}
+
+/**
+ * 会话级设定补丁（docs/02 §4.1 的 session:update）。
+ * 传 null 表示刻意回退到全局默认，因此必须用 `in` 判断而不是 `!== undefined`。
+ */
+export function updateSession(id: string, patch: SessionPatch): SessionSummary {
+  const sets: string[] = []
+  const values: unknown[] = []
+
+  const push = (column: string, value: unknown): void => {
+    sets.push(`${column} = ?`)
+    values.push(value)
+  }
+
+  if ('modelId' in patch) push('model_id', patch.modelId ?? null)
+  if ('thinking' in patch) {
+    push('thinking', patch.thinking === null || patch.thinking === undefined ? null : patch.thinking ? 1 : 0)
+  }
+  if ('effort' in patch) push('effort', patch.effort ?? null)
+  if ('temperature' in patch) push('temperature', patch.temperature ?? null)
+  if ('maxTokens' in patch) push('max_tokens', patch.maxTokens ?? null)
+  if ('systemPrompt' in patch) push('system_prompt', patch.systemPrompt?.trim() || null)
+
+  if (sets.length > 0) {
+    sets.push('updated_at = ?')
+    values.push(Date.now(), id)
+    getDb().prepare(`UPDATE sessions SET ${sets.join(', ')} WHERE id = ?`).run(...values)
+  }
+
   return mustGetSession(id)
 }
 

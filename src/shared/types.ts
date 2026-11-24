@@ -49,11 +49,24 @@ export interface SessionSummary {
   modelId: string | null
   thinking: boolean | null
   effort: ReasoningEffort | null
+  temperature: number | null
+  maxTokens: number | null
+  systemPrompt: string | null
   activeLeafId: string | null
   createdAt: number
   updatedAt: number
   archivedAt: number | null
   messageCount: number
+}
+
+/** 会话级设定补丁。字段传 null 表示"回退到全局默认" */
+export interface SessionPatch {
+  modelId?: string | null
+  thinking?: boolean | null
+  effort?: ReasoningEffort | null
+  temperature?: number | null
+  maxTokens?: number | null
+  systemPrompt?: string | null
 }
 
 export interface SendParams {
@@ -161,6 +174,7 @@ export interface AppApi {
       thinking?: boolean | null
     }): Promise<Result<SessionSummary>>
     rename(id: string, title: string): Promise<Result<SessionSummary>>
+    update(id: string, patch: SessionPatch): Promise<Result<SessionSummary>>
     remove(id: string): Promise<Result<{ id: string }>>
   }
 
@@ -205,6 +219,8 @@ export interface BootstrapInfo {
   hasKey: boolean
   encryption: EncryptionStatus
   sessionCount: number
+  /** 上次异常退出遗留的 streaming 消息数，启动时已被标记为 aborted */
+  recoveredMessages: number
   dataDir: string
   appVersion: string
   electronVersion: string

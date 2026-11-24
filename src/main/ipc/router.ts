@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { z } from 'zod'
 import type { AppErrorCode, BootstrapInfo, Result } from '@shared/types'
+import { recoveredMessageCount } from '../db'
 import { countSessions } from '../db/repo/session'
 import * as messages from '../db/repo/message'
 import * as sessions from '../db/repo/session'
@@ -26,6 +27,7 @@ export function registerIpc(ctx: RouterContext): void {
     hasKey: hasKey(),
     encryption: await encryptionStatus(),
     sessionCount: countSessions(),
+    recoveredMessages: recoveredMessageCount(),
     dataDir: ctx.dataDir,
     appVersion: app.getVersion(),
     electronVersion: process.versions.electron ?? '',
@@ -92,6 +94,23 @@ export function registerIpc(ctx: RouterContext): void {
 
   handle('session:rename', z.object({ id: idSchema, title: z.string().min(1).max(120) }), (input) =>
     sessions.renameSession(input.id, input.title)
+  )
+
+  handle(
+    'session:update',
+    z.object({
+      id: idSchema,
+      // 传 null 表示回退到全局默认，所以每个字段都允许 nullable
+      patch: z.object({
+        modelId: z.string().min(1).nullable().optional(),
+        thinking: z.boolean().nullable().optional(),
+        effort: z.enum(['low', 'high', 'max']).nullable().optional(),
+        temperature: z.number().min(0).max(2).nullable().optional(),
+        maxTokens: z.number().int().min(1).max(1_000_000).nullable().optional(),
+        systemPrompt: z.string().max(20_000).nullable().optional()
+      })
+    }),
+    (input) => sessions.updateSession(input.id, input.patch)
   )
 
   handle('session:delete', z.object({ id: idSchema }), (input) => {
@@ -166,7 +185,7 @@ export function registerIpc(ctx: RouterContext): void {
     return win ? readUiState(win) : { maximized: false, focused: false }
   })
 
-  logger.info('[ipc] registered 18 channels')
+  logger.info('[ipc] registered 19 channels')
 }
 
 /**

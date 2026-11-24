@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ChatFrame } from '../src/shared/types'
 import { abort, regenerate, send, setFrameSink } from '../src/main/chat/service'
-import { closeDatabase, getDb, initDatabase } from '../src/main/db'
-import { getThread, countSiblings } from '../src/main/db/repo/message'
+import { closeDatabase, getDb, initDatabase, recoveredMessageCount } from '../src/main/db'
+import * as messagesRepo from '../src/main/db/repo/message'
+import { countSiblings, getThread } from '../src/main/db/repo/message'
 import * as sessions from '../src/main/db/repo/session'
 import { initModels, rememberModels } from '../src/main/services/models'
 import { getKey, initSecret, setKey } from '../src/main/services/secret'
@@ -47,7 +48,10 @@ function startMockServer(): Promise<{ close: () => Promise<void>; port: number }
       body += chunk
     })
     req.on('end', async () => {
-      mockRequests.push(JSON.parse(body) as Record<string, unknown>)
+      const parsedBody = JSON.parse(body) as Record<string, unknown>
+      mockRequests.push(parsedBody)
+      // 慢速模式：留出足够时间窗观察“流式期间是否已经增量落库”
+      const delay = parsedBody.model === 'mock-slow' ? 300 : 15
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
       const events = [
         'data: {"choices":[{"delta":{"reasoning_content":"先确认需求。"}}]}\n\n',
@@ -59,7 +63,7 @@ function startMockServer(): Promise<{ close: () => Promise<void>; port: number }
         'data: [DONE]\n\n'
       ]
       for (const event of events) {
-        await sleep(15)
+        await sleep(delay)
         res.write(event)
       }
       res.end()
@@ -191,6 +195,66 @@ async function main(): Promise<void> {
     check('同一会话的第二个请求被拒绝', secondError !== null, secondError)
     abort(first.requestId)
     await waitForFrame((frame) => frame.requestId === first.requestId && frame.type === 'end')
+    console.log('\n[7] 启动自愈')
+    const orphan = sessions.createSession({ modelId: 'mock-flash', thinking: null })
+    const orphanMessage = messagesRepo.insertMessage({
+      sessionId: orphan.id,
+      parentId: null,
+      role: 'assistant',
+      status: 'streaming',
+      modelId: 'mock-flash'
+    })
+    closeDatabase()
+    initDatabase(dataDir)
+    const healed = messagesRepo.getMessage(orphanMessage.id)
+    check('残留 streaming 被标记为 aborted', healed?.status === 'aborted', healed?.status)
+    check('自愈计数可上报给渲染层', recoveredMessageCount() === 1, recoveredMessageCount())
+
+    console.log('\n[8] 增量落库（200ms / 32 帧）')
+    const slowSession = sessions.createSession({ modelId: 'mock-slow', thinking: false })
+    const slowSent = await send({ sessionId: slowSession.id, parentId: null, text: '慢速流' })
+    await waitForFrame((frame) => frame.requestId === slowSent.requestId && frame.type === 'text')
+    // 首帧文本到达后再等 300ms：定时器 200ms 应已触发一次落库
+    await sleep(300)
+    const duringStream = messagesRepo.getMessage(slowSent.assistantMessageId)
+    check(
+      '生成过程中数据库已有部分内容',
+      (duringStream?.content.length ?? 0) > 0,
+      duringStream?.content
+    )
+    check('此时状态仍为 streaming', duringStream?.status === 'streaming', duringStream?.status)
+    await waitForFrame((frame) => frame.requestId === slowSent.requestId && frame.type === 'end')
+    const afterStream = messagesRepo.getMessage(slowSent.assistantMessageId)
+    check('结束后完整内容覆盖增量内容', afterStream?.content === '你好，世界。', afterStream?.content)
+
+    console.log('\n[9] 会话级设定')
+    const configured = sessions.updateSession(session.id, {
+      temperature: 0.3,
+      maxTokens: 512,
+      thinking: false,
+      effort: 'low'
+    })
+    check('temperature 写入会话', configured.temperature === 0.3, configured.temperature)
+    check('maxTokens 写入会话', configured.maxTokens === 512, configured.maxTokens)
+    check('thinking 写入会话', configured.thinking === false, configured.thinking)
+    check('effort 写入会话', configured.effort === 'low', configured.effort)
+
+    const configuredSend = await send({ sessionId: session.id, parentId: null, text: '带参数的请求' })
+    await waitForFrame((frame) => frame.requestId === configuredSend.requestId && frame.type === 'end')
+    const configuredBody = mockRequests.at(-1)
+    check('请求体带上会话 temperature', configuredBody?.temperature === 0.3, configuredBody?.temperature)
+    check('请求体带上会话 max_tokens', configuredBody?.max_tokens === 512, configuredBody?.max_tokens)
+    check(
+      '会话设定为关闭时 thinking=disabled',
+      JSON.stringify(configuredBody?.thinking) === '{"type":"disabled"}',
+      configuredBody?.thinking
+    )
+    check(
+      '关闭思考时不发送 reasoning_effort',
+      configuredBody?.reasoning_effort === undefined,
+      configuredBody?.reasoning_effort
+    )
+
   } finally {
     closeDatabase()
     await mock.close()

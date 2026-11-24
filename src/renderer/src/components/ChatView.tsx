@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatMessage, MessageStatus } from '@shared/types'
 import { useChat, type LiveMessage } from '../store/chat'
 import { Composer } from './Composer'
 import { MessageItem } from './MessageItem'
+import { SessionMenu } from './SessionMenu'
 
 export function ChatView(): React.JSX.Element {
   const sessions = useChat((state) => state.sessions)
@@ -11,7 +12,8 @@ export function ChatView(): React.JSX.Element {
   const live = useChat((state) => state.live)
   const error = useChat((state) => state.error)
   const setError = useChat((state) => state.setError)
-  const models = useChat((state) => state.models)
+  const recovered = useChat((state) => state.boot?.recoveredMessages ?? 0)
+  const [showRecovered, setShowRecovered] = useState(recovered > 0)
 
   const session = sessions.find((item) => item.id === activeSessionId) ?? null
   const rendered = useMemo(() => mergeLive(messages, live), [messages, live])
@@ -32,8 +34,6 @@ export function ChatView(): React.JSX.Element {
     el.scrollTop = el.scrollHeight
   }, [rendered])
 
-  const modelLabel =
-    models.find((item) => item.id === (session?.modelId ?? models[0]?.id))?.name ?? '未选择模型'
 
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-surface">
@@ -41,10 +41,23 @@ export function ChatView(): React.JSX.Element {
         <span className="min-w-0 flex-1 truncate text-title font-medium">
           {session?.title ?? '新对话'}
         </span>
-        <span className="rounded-full border border-line px-2 py-0.5 text-micro text-fg-muted">
-          {modelLabel}
-        </span>
+        <SessionMenu />
       </header>
+
+      {showRecovered && (
+        <div className="flex items-start gap-3 border-b border-line bg-surface px-6 py-2">
+          <p className="min-w-0 flex-1 text-ui text-warn">
+            上次生成被中断：{recovered} 条消息已标记为「已停止」，内容保留到中断前，可在对应消息上点「重新生成」。
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowRecovered(false)}
+            className="text-micro text-fg-subtle hover:text-fg"
+          >
+            关闭
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-start gap-3 border-b border-line bg-surface px-6 py-2">

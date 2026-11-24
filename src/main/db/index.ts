@@ -6,6 +6,7 @@ import { migrations } from './migrations'
 import type { SqliteDb } from './types'
 
 let instance: SqliteDb | null = null
+let recoveredOnBoot = 0
 
 export function dbFilePath(dataDir: string): string {
   return join(dataDir, 'chat.db')
@@ -26,6 +27,15 @@ export function initDatabase(dataDir: string): SqliteDb {
   db.pragma('busy_timeout = 5000')
 
   const applied = migrate(db)
+
+  // 启动自愈（docs/03 §4.3）：任何残留的 streaming 都意味着上次进程没正常结束
+  recoveredOnBoot = db
+    .prepare(`UPDATE messages SET status = 'aborted', updated_at = ? WHERE status = 'streaming'`)
+    .run(Date.now()).changes
+  if (recoveredOnBoot > 0) {
+    logger.warn(`[db] recovered ${recoveredOnBoot} interrupted message(s) → aborted`)
+  }
+
   logger.info(
     `[db] ready at ${file} (schema v${currentVersion(db)}, ${applied} migration(s) applied, ` +
       `foreign_keys=${String(db.pragma('foreign_keys', { simple: true }))})`
@@ -33,6 +43,10 @@ export function initDatabase(dataDir: string): SqliteDb {
 
   instance = db
   return db
+}
+
+export function recoveredMessageCount(): number {
+  return recoveredOnBoot
 }
 
 export function getDb(): SqliteDb {

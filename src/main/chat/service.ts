@@ -10,6 +10,7 @@ import { getConfig } from '../services/settings'
 import { streamChatCompletion } from './client'
 import { buildChatBody } from './context'
 import { ChatError, isAbortError } from './errors'
+import { FlushThrottle } from './flush'
 
 /**
  * 请求生命周期（docs/02 §6）。
@@ -96,9 +97,10 @@ export async function send(params: SendParams): Promise<SendResult> {
     apiKey,
     thinking,
     effort,
-    temperature: params.overrides?.temperature,
-    maxTokens: params.overrides?.maxTokens,
-    systemPrompt: null
+    // 优先级：本条 overrides > 会话设定 > 全局默认（docs/02 §5）
+    temperature: params.overrides?.temperature ?? session.temperature ?? undefined,
+    maxTokens: params.overrides?.maxTokens ?? session.maxTokens ?? undefined,
+    systemPrompt: session.systemPrompt
   })
 
   return { requestId, userMessageId: userMessage.id, assistantMessageId: assistantMessage.id }
@@ -137,9 +139,9 @@ export async function regenerate(assistantMessageId: string): Promise<{
     apiKey,
     thinking: resolveThinking(session.thinking, undefined),
     effort: resolveEffort(session.effort, undefined),
-    temperature: undefined,
-    maxTokens: undefined,
-    systemPrompt: null
+    temperature: session.temperature ?? undefined,
+    maxTokens: session.maxTokens ?? undefined,
+    systemPrompt: session.systemPrompt
   })
 
   return { requestId, assistantMessageId: next.id }
@@ -196,6 +198,14 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
 
   emit({ requestId: run.requestId, type: 'start', assistantMessageId: run.assistantMessageId, startedAt })
 
+  // 增量落库：200ms 或 32 帧先到即写，崩溃最多丢 200ms（docs/03 §5）
+  const throttle = new FlushThrottle(() => {
+    messages.updateMessage(run.assistantMessageId, {
+      content,
+      reasoning: reasoning || null
+    })
+  })
+
   const firstTokenTimer = setTimeout(() => {
     run.timedOut = true
     run.controller.abort()
@@ -229,10 +239,12 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
       switch (event.type) {
         case 'thinking':
           reasoning += event.delta
+          throttle.mark()
           emit({ requestId: run.requestId, type: 'think', delta: event.delta })
           break
         case 'text':
           content += event.delta
+          throttle.mark()
           emit({ requestId: run.requestId, type: 'text', delta: event.delta })
           break
         case 'usage':
@@ -248,6 +260,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
     const finalUsage = finalizeUsage(usage, firstTokenAt, startedAt)
     const reason = finishReason === 'length' ? 'length' : 'stop'
 
+    throttle.dispose()
     persist(run, { content, reasoning, status: 'complete', finishReason, usage: finalUsage })
     emit({
       requestId: run.requestId,
@@ -260,6 +273,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
     const finalUsage = finalizeUsage(usage, firstTokenAt, startedAt)
 
     if (isAbortError(err)) {
+      throttle.dispose()
       if (run.timedOut) {
         persist(run, { content, reasoning, status: 'error', finishReason: null, usage: finalUsage,
           error: { code: 'FIRST_TOKEN_TIMEOUT', message: '30 秒内没有收到任何响应，已中止' } })
@@ -272,6 +286,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
         })
       } else {
         // 用户主动停止：已收到的内容必须保留，标记 aborted 而不是 error
+        throttle.dispose()
         persist(run, { content, reasoning, status: 'aborted', finishReason: 'aborted', usage: finalUsage })
         emit({ requestId: run.requestId, type: 'end', reason: 'aborted', endedAt: Date.now() })
       }
@@ -280,6 +295,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
 
     const error = toChatError(err, content.length > 0)
     logger.error(`[chat] ${error.code}`, error.message)
+    throttle.dispose()
     persist(run, { content, reasoning, status: 'error', finishReason: null, usage: finalUsage,
       error: { code: error.code, message: error.message } })
     emit({
@@ -290,6 +306,7 @@ async function executeRun(run: RunContext, input: RunInput): Promise<void> {
       retryable: error.retryable
     })
   } finally {
+    throttle.dispose()
     clearTimeout(firstTokenTimer)
     runs.delete(run.requestId)
     if (activeBySession.get(input.sessionId) === run.requestId) {

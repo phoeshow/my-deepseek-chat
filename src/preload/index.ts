@@ -27,6 +27,7 @@ const api: AppApi = {
     list: () => invoke('session:list'),
     create: (input) => invoke('session:create', input ?? {}),
     rename: (id, title) => invoke('session:rename', { id, title }),
+    update: (id, patch) => invoke('session:update', { id, patch }),
     remove: (id) => invoke('session:delete', { id })
   },
 

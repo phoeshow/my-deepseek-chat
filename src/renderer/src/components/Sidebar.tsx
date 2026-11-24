@@ -12,7 +12,24 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
   const createSession = useChat((state) => state.createSession)
   const selectSession = useChat((state) => state.selectSession)
   const removeSession = useChat((state) => state.removeSession)
+  const renameSession = useChat((state) => state.renameSession)
   const [confirming, setConfirming] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+
+  const startRename = (id: string, title: string): void => {
+    setEditingId(id)
+    setDraft(title)
+  }
+
+  const commitRename = async (): Promise<void> => {
+    const id = editingId
+    if (!id) return
+    setEditingId(null)
+    const title = draft.trim()
+    if (!title) return
+    await renameSession(id, title)
+  }
 
   return (
     <aside className="flex w-[240px] shrink-0 flex-col border-r border-line bg-canvas">
@@ -37,20 +54,46 @@ export function Sidebar({ onOpenSettings }: Props): React.JSX.Element {
             const isRunning = running?.sessionId === session.id
             return (
               <li key={session.id} className="group relative">
-                <button
-                  type="button"
-                  onClick={() => void selectSession(session.id)}
-                  className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-ui ${
-                    active
-                      ? 'bg-accent-subtle text-fg'
-                      : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
-                  }`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{session.title}</span>
-                  {isRunning && (
-                    <span aria-label="生成中" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                  )}
-                </button>
+                {editingId === session.id ? (
+                  <input
+                    autoFocus
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onBlur={() => void commitRename()}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        void commitRename()
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setEditingId(null)
+                      }
+                    }}
+                    maxLength={120}
+                    className="w-full rounded-sm border border-accent bg-surface px-3 py-2 text-ui text-fg outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void selectSession(session.id)}
+                    onDoubleClick={() => startRename(session.id, session.title)}
+                    title="双击重命名"
+                    className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-ui ${
+                      active
+                        ? 'bg-accent-subtle text-fg'
+                        : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{session.title}</span>
+                    {isRunning && (
+                      <span
+                        aria-label="生成中"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                      />
+                    )}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setConfirming(session.id)}
