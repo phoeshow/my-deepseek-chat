@@ -1,0 +1,14 @@
+packages:
+  - '.'
+
+# pnpm 12 起，允许执行构建脚本的键名是 allowBuilds（旧的 onlyBuiltDependencies 已不再被读取）。
+# 需要放行的四个包：
+#   electron           → 下载 Chromium 二进制
+#   better-sqlite3     → 原生模块（随后由 electron-rebuild 针对 Electron ABI 重建一次）
+#   esbuild            → vite 的打包器，安装期校验平台二进制
+#   @tailwindcss/oxide → Tailwind v4 的原生扫描器
+allowBuilds:
+  electron: true
+  better-sqlite3: true
+  esbuild: true
+  '@tailwindcss/oxide': true

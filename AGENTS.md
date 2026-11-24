@@ -54,17 +54,24 @@
 - 注释只解释**为什么**，不复述代码在做什么
 - 引入第三方库前先看 `docs/02` §1 技术栈表；**禁止引入整套组件库**（antd / MUI / Chakra），只用 Radix 原语
 
-## 六、命令（M0 建立后生效）
+## 六、命令（M0 已可跑）
 
 ```bash
-pnpm dev          # electron-vite 开发
-pnpm typecheck    # tsc --noEmit
-pnpm lint
+pnpm install      # 首次装依赖；若 electron 二进制缺失见下方“坑”
+pnpm dev          # electron-vite 开发（渲染层 HMR，主进程改动自动重启）
+pnpm typecheck    # tsc --noEmit，分 node / web 两侧
+pnpm build        # typecheck + 产物输出到 out/
 pnpm rebuild      # electron-rebuild -f -w better-sqlite3（改原生依赖后必须跑）
-pnpm dist         # electron-builder 打当前平台包
+pnpm preview      # 用生产产物启动
 ```
 
-包管理器约定为 **pnpm**。若 M0 时改用 npm/yarn，同步更新本节。
+包管理器约定为 **pnpm 12**。若改用 npm/yarn，同步更新本节。
+
+**两个已踩过的坑（不要再花时间排查）**
+
+1. **pnpm 12 的构建脚本白名单键名是 `allowBuilds`**，写在 `pnpm-workspace.yaml`；旧的 `package.json` → `pnpm.onlyBuiltDependencies` 已完全不被读取（只会打 warning）。
+2. **`electron` 的二进制下载脚本可能没被触发**（`node_modules/electron/dist/` 为空、无 `path.txt`）。补救：`node node_modules/electron/install.js`。判断方法：`ls node_modules/electron/path.txt`。
+3. **Vite 大版本必须与 `@vitejs/plugin-react` 对齐**：plugin-react 6.x 要求 Vite 8（用到 `vite/internal` 导出），装成 Vite 7 会在加载配置时报 `ERR_PACKAGE_PATH_NOT_EXPORTED`。
 
 ## 七、反模式清单（本项目最容易犯的）
 

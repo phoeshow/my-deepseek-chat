@@ -1,0 +1,77 @@
+/*
+ * 设计令牌 —— 唯一事实来源见 docs/04-视觉规范.md §3。
+ * 组件里禁止硬编码 hex（AGENTS.md §3.9），一律引用这里映射出的 Tailwind 工具类。
+ *
+ * "跟随系统"用 CSS 原生 light-dark() 实现（Chromium 123+，Electron 45 满足），
+ * 这样首帧颜色不依赖 JS，避免暗色模式下打开窗口闪一下白。
+ */
+:root {
+  color-scheme: light dark;
+
+  /* light-dark(亮色值, 暗色值) */
+  --app-canvas: light-dark(#fafafa, #0f0f10);
+  --app-surface: light-dark(#ffffff, #161618);
+  --app-surface-hover: light-dark(#f4f4f5, #1e1e21);
+  --app-line: light-dark(#e7e7ea, #26262a);
+  --app-line-subtle: light-dark(#f0f0f2, #1e1e21);
+  --app-fg: light-dark(#17171a, #ececee);
+  --app-fg-muted: light-dark(#6b6b73, #9b9ba3);
+  --app-fg-subtle: light-dark(#9a9aa3, #6e6e76);
+  --app-accent: light-dark(#4f46e5, #7c7bf5);
+  --app-accent-hover: light-dark(#4338ca, #8e8df7);
+  --app-accent-subtle: light-dark(#eef0fe, #232247);
+  --app-bubble: light-dark(#f2f2f4, #202024);
+  --app-code-bg: light-dark(#fafafa, #121214);
+  --app-ok: light-dark(#16a34a, #4ade80);
+  --app-warn: light-dark(#d97706, #f59e0b);
+  --app-danger: light-dark(#dc2626, #f87171);
+}
+
+/* 用户手动锁定主题时覆盖系统偏好 */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--app-canvas);
+  --color-surface: var(--app-surface);
+  --color-surface-hover: var(--app-surface-hover);
+  --color-line: var(--app-line);
+  --color-line-subtle: var(--app-line-subtle);
+  --color-fg: var(--app-fg);
+  --color-fg-muted: var(--app-fg-muted);
+  --color-fg-subtle: var(--app-fg-subtle);
+  --color-accent: var(--app-accent);
+  --color-accent-hover: var(--app-accent-hover);
+  --color-accent-subtle: var(--app-accent-subtle);
+  --color-bubble: var(--app-bubble);
+  --color-code-bg: var(--app-code-bg);
+  --color-ok: var(--app-ok);
+  --color-warn: var(--app-warn);
+  --color-danger: var(--app-danger);
+
+  --font-sans:
+    Inter, -apple-system, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Consolas, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --text-display: 20px;
+  --text-display--line-height: 1.4;
+  --text-title: 16px;
+  --text-title--line-height: 1.4;
+  --text-body: 14px;
+  --text-body--line-height: 1.7;
+  --text-ui: 13px;
+  --text-ui--line-height: 1.5;
+  --text-meta: 12px;
+  --text-meta--line-height: 1.4;
+  --text-micro: 11px;
+  --text-micro--line-height: 1.3;
+}
