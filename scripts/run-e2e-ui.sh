@@ -60,11 +60,6 @@ sleep 7
 CDP_ENDPOINT="http://127.0.0.1:$DEBUG_PORT" node scripts/e2e-ui.mjs
 RESULT=$?
 
-if command -v grim >/dev/null 2>&1; then
-  WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" grim /tmp/my-deepseek-chat-e2e.png 2>/dev/null &&
-    echo "截图：/tmp/my-deepseek-chat-e2e.png"
-fi
-
 echo "==> 渲染层错误检查"
 if grep -qiE 'uncaught|ERR_FILE_NOT_FOUND|Failed to load resource' "$LOG"; then
   grep -iE 'uncaught|ERR_FILE_NOT_FOUND|Failed to load resource' "$LOG" | head -5

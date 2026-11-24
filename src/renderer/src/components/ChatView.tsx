@@ -4,11 +4,7 @@ import { useChat, type LiveMessage } from '../store/chat'
 import { Composer } from './Composer'
 import { MessageItem } from './MessageItem'
 
-interface Props {
-  onOpenSettings: () => void
-}
-
-export function ChatView({ onOpenSettings }: Props): React.JSX.Element {
+export function ChatView(): React.JSX.Element {
   const sessions = useChat((state) => state.sessions)
   const activeSessionId = useChat((state) => state.activeSessionId)
   const messages = useChat((state) => state.messages)
@@ -48,14 +44,6 @@ export function ChatView({ onOpenSettings }: Props): React.JSX.Element {
         <span className="rounded-full border border-line px-2 py-0.5 text-micro text-fg-muted">
           {modelLabel}
         </span>
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="rounded px-2 py-1 text-fg-subtle hover:text-fg"
-          aria-label="设置"
-        >
-          ⚙
-        </button>
       </header>
 
       {error && (

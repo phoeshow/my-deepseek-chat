@@ -8,7 +8,10 @@
  * 而 CDP 的 Input.dispatchKeyEvent 是发给渲染进程的真实事件，React 能正常收到。
  */
 
+import { writeFile } from 'node:fs/promises'
+
 const CDP_ENDPOINT = process.env.CDP_ENDPOINT ?? 'http://127.0.0.1:9222'
+const SHOT_PATH = process.env.E2E_SHOT ?? '/tmp/my-deepseek-chat-e2e.png'
 const PROMPT = '你好，验证一下流式'
 const EXPECTED_REPLY = '你好，世界。'
 const EXPECTED_REASONING = '先确认需求'
@@ -88,6 +91,14 @@ const check = (name, ok, detail) => {
 console.log('\n[1] 初始态')
 check('已跳过引导页', !(await bodyText()).includes('先配置 DeepSeek API Key'))
 
+// 入口唯一原则（docs/04 §2）：设置只能在左栏底部出现一次
+check(
+  '设置入口只有一个',
+  (await evaluate(
+    `[...document.querySelectorAll('button')].filter((b) => b.textContent.trim().includes('设置')).length`
+  )) === 1
+)
+
 console.log('\n[2] 新建会话')
 await evaluate(
   `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('新对话'))?.click()`
@@ -158,6 +169,12 @@ check(
 await evaluate(`document.querySelector('button[aria-label="${flipped}"]')?.click()`)
 await sleep(900)
 check(`再点击恢复为「${initial}」`, (await currentLabel()) === initial, await currentLabel())
+
+// 用 CDP 自己截图：不依赖 grim/scrot，且能在关闭窗口前留下证据
+await client.send('Page.enable')
+const shot = await client.send('Page.captureScreenshot', { format: 'png' })
+await writeFile(SHOT_PATH, Buffer.from(shot.data, 'base64'))
+console.log(`截图 → ${SHOT_PATH}`)
 
 console.log('\n[7] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)

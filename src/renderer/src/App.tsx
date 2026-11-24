@@ -55,7 +55,7 @@ export function App(): React.JSX.Element {
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
-        <ChatView onOpenSettings={() => setSettingsOpen(true)} />
+        <ChatView />
       </div>
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
