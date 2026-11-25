@@ -593,7 +593,116 @@ check(
 await evaluate(`document.querySelector('[aria-label="关闭已归档"]')?.click()`)
 await sleep(400)
 
-console.log('\n[19] 关闭按钮')
+console.log('\n[19] 编辑消息并分叉')
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('新对话'))?.click()`
+)
+await sleep(700)
+await evaluate(`document.querySelector('textarea').focus()`)
+await client.send('Input.insertText', { text: '原始问题' })
+await sleep(150)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+check('原始回答已完成', await waitForText('你好，世界。', 15000))
+
+// 消息区限定在滚动容器：左栏与顶栏的会话标题也叫「原始问题」，不能整体搜 body
+const messageArea = () => evaluate(`document.querySelector('main .overflow-y-auto')?.innerText ?? ''`)
+check(
+  '用户消息提供编辑入口',
+  await evaluate(
+    `[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '编辑')`
+  )
+)
+
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '编辑')?.click()`
+)
+check(
+  '编辑器打开并带原文',
+  (await evaluate(`document.querySelector('textarea[aria-label="编辑消息内容"]')?.value`)) ===
+    '原始问题'
+)
+
+await evaluate(`document.querySelector('textarea[aria-label="编辑消息内容"]')?.select()`)
+await client.send('Input.insertText', { text: '编辑后的提问' })
+await sleep(150)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+check('新问题已上屏', await waitForText('编辑后的提问', 15000))
+check('旧问题已移出主线', !(await messageArea()).includes('原始问题'))
+check(
+  '用户消息版本切换器出现（2 / 2）',
+  await waitFor(
+    `document.querySelector('[aria-label^="版本 "]')?.getAttribute('aria-label') === '版本 2 / 2'`,
+    8000
+  )
+)
+
+await evaluate(`document.querySelector('[aria-label="上一个版本"]')?.click()`)
+check('切回旧版本后旧问题回来', await waitForText('原始问题', 8000))
+check(
+  '旧版本编号为 1 / 2',
+  await evaluate(
+    `document.querySelector('[aria-label^="版本 "]')?.getAttribute('aria-label') === '版本 1 / 2'`
+  )
+)
+
+await evaluate(`document.querySelector('[aria-label="下一个版本"]')?.click()`)
+check(
+  '再切回编辑后的版本',
+  await waitFor(
+    `document.querySelector('[aria-label^="版本 "]')?.getAttribute('aria-label') === '版本 2 / 2'`,
+    8000
+  )
+)
+
+// ↑ 快捷键：输入框为空时编辑最后一条用户消息（docs/04 §6）
+await evaluate(`document.querySelector('textarea:not([aria-label="编辑消息内容"])')?.focus()`)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'ArrowUp',
+    code: 'ArrowUp',
+    windowsVirtualKeyCode: 38,
+    nativeVirtualKeyCode: 38
+  })
+}
+await sleep(400)
+check(
+  '↑ 打开最后一条用户消息的编辑器',
+  (await evaluate(`document.querySelector('textarea[aria-label="编辑消息内容"]')?.value`)) ===
+    '编辑后的提问'
+)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+    nativeVirtualKeyCode: 27
+  })
+}
+await sleep(300)
+check(
+  'Esc 取消编辑',
+  !(await evaluate(`Boolean(document.querySelector('textarea[aria-label="编辑消息内容"]'))`))
+)
+
+console.log('\n[20] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

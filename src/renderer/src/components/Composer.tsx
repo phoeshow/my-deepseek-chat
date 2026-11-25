@@ -9,6 +9,8 @@ export function Composer(): React.JSX.Element {
   const send = useChat((state) => state.send)
   const abort = useChat((state) => state.abort)
   const activeSessionId = useChat((state) => state.activeSessionId)
+  const messages = useChat((state) => state.messages)
+  const startEditMessage = useChat((state) => state.startEditMessage)
   const config = useChat((state) => state.boot?.config)
   const session = useChat((state) =>
     state.sessions.find((item) => item.id === state.activeSessionId)
@@ -43,6 +45,15 @@ export function Composer(): React.JSX.Element {
       event.preventDefault()
       submit()
       return
+    }
+    // 输入框为空时 ↑ 直接编辑最后一条用户消息（docs/04 §6）
+    if (event.key === 'ArrowUp' && text.length === 0 && !running) {
+      const lastUser = [...messages].reverse().find((item) => item.role === 'user')
+      if (lastUser) {
+        event.preventDefault()
+        startEditMessage(lastUser.id)
+        return
+      }
     }
     if (event.key === 'Escape' && running) {
       event.preventDefault()

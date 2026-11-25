@@ -201,7 +201,7 @@ export interface VersionSwitchResult {
 }
 
 /**
- * 在同一 parent 下切换 assistant 兄弟版本。
+ * 在同一 parent 下切换兄弟版本（assistant 回答，或编辑产生的 user 消息）。
  *
  * 只切一条消息是不够的：目标版本可能已经有自己的后续分支，主线游标必须落到
  * **该分支最新的末端**，否则用户切到旧版本后再发消息会挂到悬空节点上。
@@ -213,16 +213,15 @@ export function switchMessageVersion(
 ): VersionSwitchResult {
   const current = getMessage(messageId)
   if (!current) throw new Error('消息不存在')
-  if (current.role !== 'assistant') throw new Error('只能切换助手消息的版本')
 
   const db = getDb()
   const siblings = db
     .prepare(
       `SELECT id FROM messages
-       WHERE session_id = ? AND parent_id IS ? AND role = 'assistant'
+       WHERE session_id = ? AND parent_id IS ? AND role = ?
        ORDER BY created_at`
     )
-    .all(current.sessionId, current.parentId) as { id: string }[]
+    .all(current.sessionId, current.parentId, current.role) as { id: string }[]
 
   const index = siblings.findIndex((row) => row.id === messageId)
   if (index < 0) throw new Error('版本信息已失效')

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faAnglesLeft,
   faMagnifyingGlass,
+  faPen,
   faAnglesRight,
   faAsterisk,
   faBars,
@@ -59,6 +60,7 @@ export const Icon = {
   reasoningClosed: faChevronRight,
   copy: faCopy,
   copied: faCheck,
+  edit: faPen,
   regenerate: faRotateRight,
   // 选择态
   check: faCheck,

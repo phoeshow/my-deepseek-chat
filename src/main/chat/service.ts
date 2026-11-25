@@ -61,8 +61,16 @@ export async function send(params: SendParams): Promise<SendResult> {
   const apiKey = await requireKey()
   const modelId = resolveModelId(session.modelId)
 
-  // 父节点：显式传入优先，否则接在当前主线末端
-  const parentId = params.parentId ?? session.activeLeafId
+  // parentId 保留三态：undefined = 接主线末端；null = 显式建根；string = 指定父节点
+  // 不能 `?? null` 归并，否则编辑首条消息会被悄悄挂到主线末端（见 docs/02 §4.1）
+  const parentId = params.parentId === undefined ? session.activeLeafId : params.parentId
+  // 编辑分叉会显式传 parentId：必须属于本会话，否则会把两条独立的树接在一起
+  if (params.parentId) {
+    const parent = messages.getMessage(params.parentId)
+    if (!parent || parent.sessionId !== session.id) {
+      throw new ChatError('VALIDATION', '父消息不存在或不属于当前会话')
+    }
+  }
 
   const userMessage = messages.insertMessage({
     sessionId: session.id,

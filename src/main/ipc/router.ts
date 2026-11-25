@@ -189,7 +189,8 @@ export function registerIpc(ctx: RouterContext): void {
     (input) =>
       chat.send({
         sessionId: input.sessionId,
-        parentId: input.parentId ?? null,
+        // 不补 null：undefined 才是“接主线末端”，null 会被主进程理解为建根
+        ...(input.parentId === undefined ? {} : { parentId: input.parentId }),
         text: input.text,
         ...(input.overrides ? { overrides: input.overrides } : {})
       })

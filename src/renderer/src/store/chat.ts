@@ -63,6 +63,10 @@ interface ChatStore {
   searchFocusNonce: number
   /** 从搜索结果跳转后要高亮的消息 */
   highlightMessageId: string | null
+  /** 正在内联编辑的消息 id：全局只允许一个编辑器 */
+  editingMessageId: string | null
+  startEditMessage: (id: string) => void
+  cancelEditMessage: () => void
   setSearchQuery: (query: string) => void
   clearSearch: () => void
   focusSearch: () => void
@@ -98,6 +102,8 @@ interface ChatStore {
   abort: () => Promise<void>
   regenerate: (assistantMessageId: string) => Promise<void>
   switchVersion: (messageId: string, direction: 'prev' | 'next') => Promise<void>
+  /** 编辑用户消息：在同 parent 下开新分支，返回是否发送成功 */
+  editMessage: (messageId: string, text: string) => Promise<boolean>
   applyFrame: (frame: ChatFrame) => void
 }
 
@@ -166,6 +172,7 @@ export const useChat = create<ChatStore>((set, get) => ({
   searching: false,
   searchFocusNonce: 0,
   highlightMessageId: null,
+  editingMessageId: null,
   notice: null,
 
   setDraft: (draft) => set({ draft }),
@@ -216,6 +223,14 @@ export const useChat = create<ChatStore>((set, get) => ({
   },
 
   clearHighlight: () => set({ highlightMessageId: null }),
+
+  startEditMessage: (id) => {
+    const target = get().messages.find((item) => item.id === id)
+    if (!target || target.role !== 'user' || get().run) return
+    set({ editingMessageId: id })
+  },
+
+  cancelEditMessage: () => set({ editingMessageId: null }),
   showNotice: (text) => set({ notice: text }),
   clearNotice: () => set({ notice: null }),
 
@@ -244,7 +259,7 @@ export const useChat = create<ChatStore>((set, get) => ({
   },
 
   reloadAll: async () => {
-    set({ messages: [], live: {}, run: null, activeSessionId: null })
+    set({ messages: [], live: {}, run: null, activeSessionId: null, editingMessageId: null })
     await get().refreshSessions()
     const first = get().sessions[0]
     if (first) await get().selectSession(first.id)
@@ -264,7 +279,7 @@ export const useChat = create<ChatStore>((set, get) => ({
   },
 
   selectSession: async (id) => {
-    set({ activeSessionId: id, live: {}, run: null })
+    set({ activeSessionId: id, live: {}, run: null, editingMessageId: null })
     await get().refreshThread()
   },
 
@@ -313,6 +328,43 @@ export const useChat = create<ChatStore>((set, get) => ({
     else set({ activeSessionId: null, messages: [], live: {}, run: null })
   },
 
+  editMessage: async (messageId, text) => {
+    const sessionId = get().activeSessionId
+    if (!sessionId || get().run) return false
+    const target = get().messages.find((item) => item.id === messageId)
+    if (!target || target.role !== 'user') return false
+    const trimmed = text.trim()
+    // 无变更时不制造多余分支
+    if (!trimmed || trimmed === target.content.trim()) return false
+
+    set({ error: null })
+    try {
+      // 复用 chat:send：显式 parentId 让新消息成为原消息的兄弟，而不是接在主线末端
+      const result = await unwrap(
+        window.api.chat.send({
+          sessionId,
+          // 显式传 null 才是“编辑首条消息”：省略会被主进程理解为接在主线末端
+          parentId: target.parentId,
+          text: trimmed
+        })
+      )
+      set({
+        editingMessageId: null,
+        run: {
+          requestId: result.requestId,
+          sessionId,
+          assistantMessageId: result.assistantMessageId
+        }
+      })
+      await get().refreshThread()
+      await get().refreshSessions()
+      return true
+    } catch (err) {
+      set({ error: toError(err) })
+      return false
+    }
+  },
+
   restoreSession: async (id) => {
     await unwrap(window.api.session.archive(id, false))
     await get().refreshSessions()
@@ -351,7 +403,6 @@ export const useChat = create<ChatStore>((set, get) => ({
       const result = await unwrap(
         window.api.chat.send({
           sessionId,
-          parentId: null,
           text: trimmed,
           ...(overrides ? { overrides } : {})
         })
@@ -408,6 +459,8 @@ export const useChat = create<ChatStore>((set, get) => ({
     switch (frame.type) {
       case 'start':
         set((state) => ({
+          // 任何生成一开始就关闭编辑器：生成期间不允许编辑（docs/04 §4.14）
+          editingMessageId: null,
           live: {
             ...state.live,
             [frame.assistantMessageId]: {

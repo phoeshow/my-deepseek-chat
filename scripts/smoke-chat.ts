@@ -164,7 +164,7 @@ async function main(): Promise<void> {
     check('thinking 开启时传 reasoning_effort', typeof lastBody?.reasoning_effort === 'string', lastBody?.reasoning_effort)
 
     console.log('\n[4] 中途停止')
-    const second = await send({ sessionId: session.id, parentId: null, text: '再来一次' })
+    const second = await send({ sessionId: session.id, text: '再来一次' })
     await waitForFrame((frame) => frame.requestId === second.requestId && frame.type === 'text')
     const abortedFrame = waitForFrame(
       (frame) => frame.requestId === second.requestId && frame.type === 'end'
@@ -193,10 +193,10 @@ async function main(): Promise<void> {
     check('主线游标已指向新的回答', finalThread.at(-1)?.id === regen.assistantMessageId, finalThread.at(-1)?.id)
 
     console.log('\n[6] 并发保护')
-    const first = await send({ sessionId: session.id, parentId: null, text: '并发 A' })
+    const first = await send({ sessionId: session.id, text: '并发 A' })
     let secondError: string | null = null
     try {
-      await send({ sessionId: session.id, parentId: null, text: '并发 B' })
+      await send({ sessionId: session.id, text: '并发 B' })
     } catch (err) {
       secondError = err instanceof Error ? err.message : String(err)
     }
@@ -247,7 +247,7 @@ async function main(): Promise<void> {
     check('thinking 写入会话', configured.thinking === false, configured.thinking)
     check('effort 写入会话', configured.effort === 'low', configured.effort)
 
-    const configuredSend = await send({ sessionId: session.id, parentId: null, text: '带参数的请求' })
+    const configuredSend = await send({ sessionId: session.id, text: '带参数的请求' })
     await waitForFrame((frame) => frame.requestId === configuredSend.requestId && frame.type === 'end')
     const configuredBody = mockRequests.at(-1)
     check('请求体带上会话 temperature', configuredBody?.temperature === 0.3, configuredBody?.temperature)
@@ -376,7 +376,7 @@ async function main(): Promise<void> {
     // 在第二版上继续对话，再切回第一版：游标应停在第一版，而不是带着后续
     const toNext = messagesRepo.switchMessageVersion(v1Message?.id ?? '', 'next')
     check('可以切回第 2 版', toNext.changed)
-    const followUp = await send({ sessionId: vSession.id, parentId: null, text: '继续说' })
+    const followUp = await send({ sessionId: vSession.id, text: '继续说' })
     await waitForFrame((frame) => frame.requestId === followUp.requestId && frame.type === 'end')
     const withFollowUp = getThread(vSession.id, sessions.mustGetSession(vSession.id).activeLeafId)
     check('第二版分支上有 4 条消息', withFollowUp.length === 4, withFollowUp.length)
@@ -443,7 +443,86 @@ async function main(): Promise<void> {
       searchConversations('灯塔').some((hit) => hit.sessionId === archSession.id)
     )
 
-    console.log('\n[15] 日志脱敏')
+    console.log('\n[15] 编辑消息并分叉')
+    const editSession = sessions.createSession({ modelId: 'mock-flash', thinking: false })
+    const originalSend = await send({
+      sessionId: editSession.id,
+      parentId: null,
+      text: '原始问题'
+    })
+    await waitForFrame((frame) => frame.requestId === originalSend.requestId && frame.type === 'end')
+    const originalBranch = getThread(
+      editSession.id,
+      sessions.mustGetSession(editSession.id).activeLeafId
+    )
+    const originalUser = originalBranch.find((item) => item.role === 'user')
+    check('原始问题已落库', originalUser?.content === '原始问题')
+
+    // 编辑 = 在同 parent 下插新 user 兄弟节点；旧分支不删
+    const editedSend = await send({
+      sessionId: editSession.id,
+      parentId: originalUser?.parentId ?? null,
+      text: '编辑后的问题'
+    })
+    await waitForFrame((frame) => frame.requestId === editedSend.requestId && frame.type === 'end')
+    const editedBranch = getThread(
+      editSession.id,
+      sessions.mustGetSession(editSession.id).activeLeafId
+    )
+    const editedUser = editedBranch.find((item) => item.role === 'user')
+    check(
+      '编辑后主线使用新消息（不是覆盖原行）',
+      editedUser?.content === '编辑后的问题' && editedUser.id !== originalUser?.id
+    )
+    check('新回答挂在编辑后的用户消息下', editedBranch.at(-1)?.parentId === editedUser?.id)
+    check(
+      '编辑产生 2 个用户版本且当前是第 2 版',
+      editedUser?.versions?.total === 2 && editedUser.versions.index === 2,
+      editedUser?.versions
+    )
+    check(
+      '旧分支仍在库里（原回答未删）',
+      getThread(editSession.id, originalBranch.at(-1)?.id ?? null).length === 2
+    )
+
+    const backToOriginal = messagesRepo.switchMessageVersion(editedUser?.id ?? '', 'prev')
+    const backToOriginalThread = getThread(editSession.id, backToOriginal.leafId)
+    check(
+      '用户消息版本可切回原分支（此前只支持 assistant）',
+      backToOriginal.changed &&
+        backToOriginalThread[0]?.content === '原始问题' &&
+        backToOriginalThread.at(-1)?.role === 'assistant'
+    )
+    const forwardToEdited = messagesRepo.switchMessageVersion(originalUser?.id ?? '', 'next')
+    check(
+      '再切回编辑后的分支',
+      forwardToEdited.changed &&
+        getThread(editSession.id, forwardToEdited.leafId)[0]?.content === '编辑后的问题'
+    )
+
+    // 编辑会显式传 parentId，必须拦住把别的会话的树接过来的调用
+    const foreignMessage = getThread(
+      session.id,
+      sessions.mustGetSession(session.id).activeLeafId
+    )[0]
+    let crossRejected = false
+    try {
+      await send({
+        sessionId: editSession.id,
+        parentId: foreignMessage?.id ?? null,
+        text: '跨会话父节点'
+      })
+    } catch (err) {
+      crossRejected = err instanceof Error && err.message.includes('父消息')
+    }
+    check(
+      '父消息不属于当前会话时拒绝发送且不建节点',
+      crossRejected &&
+        getThread(editSession.id, sessions.mustGetSession(editSession.id).activeLeafId).length ===
+          editedBranch.length
+    )
+
+    console.log('\n[16] 日志脱敏')
     check('sk- 开头的密钥被抹掉', scrubLogValue('key=sk-abcdef1234567890') === 'key=sk-***', scrubLogValue('key=sk-abcdef1234567890'))
     check(
       'Authorization Bearer 被抹掉',

@@ -130,7 +130,11 @@ export interface SessionPatch {
 
 export interface SendParams {
   sessionId: string
-  parentId: string | null
+  /**
+   * 三态：缺省 = 接在当前主线末端；`null` = 显式建根（编辑首条消息）；
+   * 字符串 = 挂到指定消息下（编辑中间消息分叉）。
+   */
+  parentId?: string | null
   text: string
   overrides?: {
     thinking?: boolean
