@@ -44,7 +44,7 @@ export function SidebarSearch(): React.JSX.Element {
   }
 
   return (
-    <div className="px-3 pb-2">
+    <div className="px-3 pb-2 pt-3">
       <div className="flex items-center gap-2 rounded-sm border border-line bg-surface px-2.5 py-1.5 focus-within:border-accent">
         <FontAwesomeIcon icon={Icon.search} className="text-[11px] text-fg-subtle" />
         <input
