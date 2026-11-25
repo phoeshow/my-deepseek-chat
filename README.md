@@ -47,8 +47,11 @@ pnpm dev              # 开发模式（HMR）
 pnpm typecheck        # 类型检查
 pnpm test:migrations  # 迁移测试（20 项）
 pnpm smoke            # 主进程冒烟（48 项）
-pnpm e2e:ui           # UI 端到端（40 项，CDP 驱动真实键盘事件）
+pnpm e2e:ui           # UI 端到端（45 项，CDP 驱动真实键盘事件）
+pnpm clean            # 清空 tmp/ 与 release/（--tmp-only / --release-only 可分开清）
 ```
+
+工作区约定：一次性脚本与截图放 `./tmp/`（已 gitignore，不会被提交，也不随系统重启丢失）；可复用的验证脚本放 `./scripts/` 并入库。
 
 包管理器约定 **pnpm**；改原生依赖后需跑 `electron-rebuild`（见 AGENTS.md §6）。
 

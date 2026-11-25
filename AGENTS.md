@@ -67,6 +67,9 @@ pnpm rebuild      # electron-rebuild -f -w better-sqlite3（改原生依赖后�
 pnpm preview      # 用生产产物启动
 pnpm dist         # 打 Linux 产物（AppImage + tar.gz，输出 release/）
                   # 注意：--linux 不带参数只走默认目标，脚本里必须显式列出
+pnpm clean        # 清空 tmp/ 与 release/
+pnpm clean --tmp-only       # 只清 tmp/（保留构建产物，便于反复调试）
+pnpm clean --release-only   # 只清构建产物
 
 pnpm test:migrations # 迁移测试：为每个历史版本造库 → 升级 → 断言数据/幂等/原子回滚/FTS 回填
 pnpm smoke        # 主进程冒烟：真 ChatService + SQLite + 帧广播，自起 mock SSE，数据写临时目录
@@ -77,6 +80,16 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 **验证手段的优先级**：`smoke` 覆盖后端链路（协议/落库/中止/重生成/并发），`e2e:ui` 覆盖渲染层（帧合并、折叠块、输入框状态）。两者都不需要真实 API Key——因此改完代码先跑这两条，再让用户用真 Key 验收。
 
 包管理器约定为 **pnpm 12**。若改用 npm/yarn，同步更新本节。
+
+**临时文件放哪（重要）**
+
+| 类型 | 位置 | 是否入库 | 说明 |
+|---|---|---|---|
+| 一次性脚本、截图、临时数据库、抓包结果 | `./tmp/` | 否（`tmp/.gitignore` 忽略全部内容，只保留该文件本身） | **不要写 `/tmp`**——系统重启会丢，而排查结论往往隔天才用得上 |
+| 可复用的验证脚本（smoke / e2e / 迁移 / mock / clean） | `./scripts/` | 是 | 见 §6 命令；这里是工程资产，不是草稿 |
+| 构建产物 | `./release/` | 否 | 由 `pnpm dist` 生成，`pnpm clean` 清理 |
+
+`./tmp/` 在仓库里只提交一个 `.gitignore`，保证 clone 后目录存在、内容永不入库。清理用 `pnpm clean`，不要手动 `rm -rf`（Windows 上没有 rm）。
 
 **两个已踩过的坑（不要再花时间排查）**
 
@@ -109,6 +122,7 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 | 手绘 SVG 或字符当图标 | 用 `Icon.xxx`（Font Awesome）。字符图标随字体回退漂移，自绘描边宽度难统一 |
 | 把配置默认值改了就以为老用户生效 | `config.json` 有 `version` 字段，改默认值必须加版本号 + 一次性迁移，否则老配置永远停在旧值 |
 | 用 `disabled:opacity-40` 处理彩色按钮 | 白字配 40% 透明度的强调色基本看不见。禁用态应换成中性底色 + 次要文字色 |
+| 把 agent 的临时脚本、截图写到系统 `/tmp` | 写到 `./tmp/`（已 gitignore）。系统重启后 `/tmp` 会清空，而有意义的排查脚本/截图往往还要复用 |
 
 ## 八、提交与产物
 
