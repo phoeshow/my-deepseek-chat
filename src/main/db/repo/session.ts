@@ -44,16 +44,19 @@ function toSummary(row: SessionRow): SessionSummary {
   }
 }
 
-export function countSessions(): number {
-  const row = getDb().prepare('SELECT COUNT(*) AS count FROM sessions').get() as
-    | { count: number }
-    | undefined
+export function countSessions(includeArchived = false): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS count FROM sessions${includeArchived ? '' : ' WHERE archived_at IS NULL'}`
+    )
+    .get() as { count: number } | undefined
   return row?.count ?? 0
 }
 
-export function listSessions(): SessionSummary[] {
+/** 默认只返回未归档会话；includeArchived=true 用于「已归档」列表与全量导出 */
+export function listSessions(includeArchived = false): SessionSummary[] {
   const rows = getDb()
-    .prepare(`${SELECT} ORDER BY s.updated_at DESC`)
+    .prepare(`${SELECT}${includeArchived ? '' : ' WHERE s.archived_at IS NULL'} ORDER BY s.updated_at DESC`)
     .all() as SessionRow[]
   return rows.map(toSummary)
 }
@@ -124,6 +127,17 @@ export function updateSession(id: string, patch: SessionPatch): SessionSummary {
 export function deleteSession(id: string): void {
   // messages / 子节点依赖 ON DELETE CASCADE，前提是 foreign_keys=ON（见 db/index.ts）
   getDb().prepare('DELETE FROM sessions WHERE id = ?').run(id)
+}
+
+/**
+ * 归档 = 只写 archived_at（docs/03 §8）。刻意不动 updated_at：
+ * 恢复后要回到它原本的时间位置，而不是因为“归档过一次”就跳到列表顶部。
+ */
+export function archiveSession(id: string, archived: boolean): SessionSummary {
+  getDb()
+    .prepare('UPDATE sessions SET archived_at = ? WHERE id = ?')
+    .run(archived ? Date.now() : null, id)
+  return mustGetSession(id)
 }
 
 /** 发送成功后把主线游标推到新的 assistant 消息上 */

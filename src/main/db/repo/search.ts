@@ -10,6 +10,8 @@ import { getDb } from '../index'
  *    也能给出可读的片段，而不是返回正文开头。
  * 3. **高亮标记用 \u0001 / \u0002 而不是 HTML**：渲染层按标记切分后自己套 <mark>，
  *    避免把数据库内容当 HTML 注入。
+ * 4. **不搜归档会话**（ADR-24）：搜索结果必须可操作；
+ *    若命中一个不在主列表里的会话，点进去会失去“我现在在哪”的锚点。
  */
 
 export const HIGHLIGHT_START = '\u0001'
@@ -64,7 +66,7 @@ export function searchConversations(rawQuery: string, limit = 30): SearchHit[] {
   const sessions = db
     .prepare(
       `SELECT id, title, updated_at FROM sessions
-       WHERE title LIKE ? ESCAPE '\\'
+       WHERE title LIKE ? ESCAPE '\\' AND archived_at IS NULL
        ORDER BY updated_at DESC
        LIMIT 8`
     )
@@ -107,7 +109,7 @@ function searchWithFts(query: string, limit: number): MessageRow[] {
          FROM messages_fts
          JOIN messages m ON m.rowid = messages_fts.rowid
          JOIN sessions s ON s.id = m.session_id
-         WHERE messages_fts MATCH ?
+         WHERE messages_fts MATCH ? AND s.archived_at IS NULL
          ORDER BY bm25(messages_fts)
          LIMIT ?`
       )
@@ -126,7 +128,7 @@ function searchWithLike(like: string, limit: number): MessageRow[] {
               substr(m.content, 1, 120) AS snip
        FROM messages m
        JOIN sessions s ON s.id = m.session_id
-       WHERE m.content LIKE ? ESCAPE '\\'
+       WHERE m.content LIKE ? ESCAPE '\\' AND s.archived_at IS NULL
        ORDER BY m.created_at DESC
        LIMIT ?`
     )

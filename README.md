@@ -2,7 +2,7 @@
 
 本地运行的 DeepSeek 桌面聊天助手。Electron + React + TypeScript，数据全部留在本机。
 
-> 当前状态：**v1.0.0 已完成**。M0–M4 五个里程碑全部交付，设计与实现文档同步。
+> 当前状态：**v1.0 已交付**（M0–M4 完成，Linux 产物实测可用），**v1.1 增量进行中**（跨会话搜索 / 消息版本切换 / 用量仪表盘 / 会话归档已交付）。
 
 ## 文档
 
@@ -46,8 +46,8 @@ pnpm install          # 首次安装（electron 二进制缺失时见 AGENTS.md 
 pnpm dev              # 开发模式（HMR）
 pnpm typecheck        # 类型检查
 pnpm test:migrations  # 迁移测试（20 项）
-pnpm smoke            # 主进程冒烟（48 项）
-pnpm e2e:ui           # UI 端到端（45 项，CDP 驱动真实键盘事件）
+pnpm smoke            # 主进程冒烟（80 项）
+pnpm e2e:ui           # UI 端到端（74 项，CDP 驱动真实键盘事件）
 pnpm clean            # 清空 tmp/ 与 release/（--tmp-only / --release-only 可分开清）
 ```
 
@@ -57,4 +57,4 @@ pnpm clean            # 清空 tmp/ 与 release/（--tmp-only / --release-only �
 
 ## 后续
 
-v1.1 backlog 见 [docs/05-路线图](./docs/05-路线图.md) §3：全文搜索 UI（索引已就绪）、消息版本切换、用量仪表盘、编辑消息分叉等。
+v1.1 backlog 见 [docs/05-路线图](./docs/05-路线图.md) §3：搜索 / 版本切换 / 用量 / 会话归档已交付；下一步是「编辑任意消息并分叉」，随后是系统提示词预设库与多 provider 选择器。

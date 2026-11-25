@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { SessionSummary } from '@shared/types'
 import { useChat } from '../store/chat'
+import { ArchivedDialog } from './ArchivedDialog'
 import { FontAwesomeIcon, Icon } from './icons'
 import { SearchResults, SidebarSearch } from './SidebarSearch'
 
@@ -11,11 +12,13 @@ interface Props {
 
 export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
   const sessions = useChat((state) => state.sessions)
+  const archivedSessions = useChat((state) => state.archivedSessions)
   const activeId = useChat((state) => state.activeSessionId)
   const running = useChat((state) => state.run)
   const createSession = useChat((state) => state.createSession)
   const selectSession = useChat((state) => state.selectSession)
   const removeSession = useChat((state) => state.removeSession)
+  const archiveSession = useChat((state) => state.archiveSession)
   const renameSession = useChat((state) => state.renameSession)
   const showNotice = useChat((state) => state.showNotice)
   const patchConfig = useChat((state) => state.patchConfig)
@@ -25,6 +28,7 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
   const setView = useChat((state) => state.setView)
   const [confirming, setConfirming] = useState<string | null>(null)
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [archivedOpen, setArchivedOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
@@ -156,6 +160,17 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
                     <MenuItem onClick={() => void exportSession(session)}>导出 Markdown</MenuItem>
                     <MenuItem onClick={() => startRename(session.id, session.title)}>重命名</MenuItem>
                     <MenuItem
+                      // 正在生成的会话不能归档：切走会丢 live 状态，主进程却还在写库
+                      disabled={running?.sessionId === session.id}
+                      title={running?.sessionId === session.id ? '生成中，无法归档' : undefined}
+                      onClick={() => {
+                        setMenuFor(null)
+                        void archiveSession(session.id)
+                      }}
+                    >
+                      归档
+                    </MenuItem>
+                    <MenuItem
                       tone="danger"
                       onClick={() => {
                         setMenuFor(null)
@@ -174,6 +189,18 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
       </nav>
 
       <div className="space-y-0.5 border-t border-line px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setArchivedOpen(true)}
+          aria-label="已归档"
+          className="w-full rounded-sm px-3 py-2 text-left text-ui text-fg-subtle hover:bg-surface-hover hover:text-fg"
+        >
+          <FontAwesomeIcon icon={Icon.archive} className="mr-2 text-[11px]" />
+          已归档
+          {archivedSessions.length > 0 && (
+            <span className="ml-2 text-micro tabular-nums">{archivedSessions.length}</span>
+          )}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -197,6 +224,10 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
           设置
         </button>
       </div>
+
+      {archivedOpen && (
+        <ArchivedDialog onClose={() => setArchivedOpen(false)} onDelete={(id) => setConfirming(id)} />
+      )}
 
       {confirming && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">
@@ -237,19 +268,29 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
 function MenuItem({
   children,
   onClick,
-  tone
+  tone,
+  disabled,
+  title
 }: {
   children: React.ReactNode
   onClick: () => void
   tone?: 'danger'
+  disabled?: boolean
+  title?: string
 }): React.JSX.Element {
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
+      disabled={disabled}
+      title={title}
       className={`w-full rounded-sm px-3 py-1.5 text-left text-ui ${
-        tone === 'danger' ? 'text-danger hover:bg-surface-hover' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
+        disabled
+          ? 'cursor-not-allowed text-fg-subtle'
+          : tone === 'danger'
+            ? 'text-danger hover:bg-surface-hover'
+            : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
       }`}
     >
       {children}

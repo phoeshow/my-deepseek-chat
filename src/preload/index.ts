@@ -24,11 +24,12 @@ const api: AppApi = {
   },
 
   session: {
-    list: () => invoke('session:list'),
+    list: (input) => invoke('session:list', input ?? {}),
     create: (input) => invoke('session:create', input ?? {}),
     rename: (id, title) => invoke('session:rename', { id, title }),
     update: (id, patch) => invoke('session:update', { id, patch }),
-    remove: (id) => invoke('session:delete', { id })
+    remove: (id) => invoke('session:delete', { id }),
+    archive: (id, archived) => invoke('session:archive', { id, archived })
   },
 
   message: {

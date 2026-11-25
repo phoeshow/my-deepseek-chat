@@ -36,6 +36,8 @@ interface ChatStore {
   boot: BootstrapInfo | null
   models: ModelInfo[]
   sessions: SessionSummary[]
+  /** 已归档会话：只在「已归档」弹层里展示，不进主列表也不进搜索结果 */
+  archivedSessions: SessionSummary[]
   activeSessionId: string | null
   messages: ChatMessage[]
   live: Record<string, LiveMessage>
@@ -84,6 +86,8 @@ interface ChatStore {
   renameSession: (id: string, title: string) => Promise<void>
   updateSession: (patch: SessionPatch) => Promise<void>
   removeSession: (id: string) => Promise<void>
+  archiveSession: (id: string) => Promise<void>
+  restoreSession: (id: string) => Promise<void>
 
   patchConfig: (patch: AppConfigPatch) => Promise<void>
   refreshModels: () => Promise<void>
@@ -148,6 +152,7 @@ export const useChat = create<ChatStore>((set, get) => ({
   boot: null,
   models: [],
   sessions: [],
+  archivedSessions: [],
   activeSessionId: null,
   messages: [],
   live: {},
@@ -230,14 +235,18 @@ export const useChat = create<ChatStore>((set, get) => ({
   setError: (error) => set({ error }),
 
   refreshSessions: async () => {
-    const sessions = await unwrap(window.api.session.list())
-    set({ sessions })
+    // 一次拿全（含归档）再在本地拆分：两个列表来自同一个快照，不会出现归档瞬间的重复/丢失
+    const all = await unwrap(window.api.session.list({ includeArchived: true }))
+    set({
+      sessions: all.filter((item) => item.archivedAt === null),
+      archivedSessions: all.filter((item) => item.archivedAt !== null)
+    })
   },
 
   reloadAll: async () => {
-    const sessions = await unwrap(window.api.session.list())
-    set({ sessions, messages: [], live: {}, run: null, activeSessionId: null })
-    const first = sessions[0]
+    set({ messages: [], live: {}, run: null, activeSessionId: null })
+    await get().refreshSessions()
+    const first = get().sessions[0]
     if (first) await get().selectSession(first.id)
   },
 
@@ -290,6 +299,23 @@ export const useChat = create<ChatStore>((set, get) => ({
       if (next) await get().selectSession(next.id)
       else set({ activeSessionId: null, messages: [] })
     }
+  },
+
+  archiveSession: async (id) => {
+    // 正在生成的会话不能归档：切走会丢掉 live 状态，而主进程仍在写库，两边的游标会对不上
+    if (get().run?.sessionId === id) return
+    const wasActive = get().activeSessionId === id
+    await unwrap(window.api.session.archive(id, true))
+    await get().refreshSessions()
+    if (!wasActive) return
+    const next = get().sessions[0]
+    if (next) await get().selectSession(next.id)
+    else set({ activeSessionId: null, messages: [], live: {}, run: null })
+  },
+
+  restoreSession: async (id) => {
+    await unwrap(window.api.session.archive(id, false))
+    await get().refreshSessions()
   },
 
   patchConfig: async (patch) => {

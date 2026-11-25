@@ -6,6 +6,7 @@ import {
   faAnglesRight,
   faAsterisk,
   faBars,
+  faBoxArchive,
   faChartSimple,
   faCheck,
   faChevronDown,
@@ -48,6 +49,7 @@ export const Icon = {
   // 会话
   newChat: faPlus,
   sessionMenu: faEllipsis,
+  archive: faBoxArchive,
   settings: faGear,
   // 消息
   assistant: faAsterisk,

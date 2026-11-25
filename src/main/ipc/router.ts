@@ -112,7 +112,11 @@ export function registerIpc(ctx: RouterContext): void {
   })
 
   // ---- 会话 ----
-  handle('session:list', z.void(), () => sessions.listSessions())
+  handle(
+    'session:list',
+    z.object({ includeArchived: z.boolean().optional() }).optional(),
+    (input) => sessions.listSessions(input?.includeArchived ?? false)
+  )
 
   handle(
     'session:create',
@@ -151,6 +155,10 @@ export function registerIpc(ctx: RouterContext): void {
     sessions.deleteSession(input.id)
     return { id: input.id }
   })
+
+  handle('session:archive', z.object({ id: idSchema, archived: z.boolean() }), (input) =>
+    sessions.archiveSession(input.id, input.archived)
+  )
 
   // ---- 消息 ----
   handle(
@@ -300,7 +308,7 @@ export function registerIpc(ctx: RouterContext): void {
     return win ? readUiState(win) : { maximized: false, focused: false }
   })
 
-  logger.info('[ipc] registered 28 channels')
+  logger.info('[ipc] registered 29 channels')
 }
 
 /**

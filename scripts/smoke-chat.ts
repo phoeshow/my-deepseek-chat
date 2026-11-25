@@ -393,7 +393,57 @@ async function main(): Promise<void> {
       messagesRepo.getMessage(withFollowUp.at(-1)?.id ?? '') !== null
     )
 
-    console.log('\n[14] 日志脱敏')
+    console.log('\n[14] 会话归档')
+    const archSession = sessions.createSession({ modelId: 'mock-flash', thinking: false })
+    const archSend = await send({
+      sessionId: archSession.id,
+      parentId: null,
+      text: '归档关键词：海燕与灯塔'
+    })
+    await waitForFrame((frame) => frame.requestId === archSend.requestId && frame.type === 'end')
+    const beforeArchive = sessions.mustGetSession(archSession.id)
+
+    check(
+      '归档前在主列表里',
+      sessions.listSessions().some((item) => item.id === archSession.id)
+    )
+    const archived = sessions.archiveSession(archSession.id, true)
+    check(
+      '归档只写 archived_at，不动 updated_at',
+      archived.archivedAt !== null && archived.updatedAt === beforeArchive.updatedAt,
+      archived
+    )
+    check(
+      '归档后从主列表消失',
+      !sessions.listSessions().some((item) => item.id === archSession.id)
+    )
+    check(
+      'includeArchived=true 仍能拿到',
+      sessions.listSessions(true).some((item) => item.id === archSession.id)
+    )
+    check(
+      '归档会话的消息仍可读',
+      getThread(archSession.id, sessions.mustGetSession(archSession.id).activeLeafId).length >= 2
+    )
+    check(
+      '归档会话不进入搜索',
+      searchConversations('灯塔').every((hit) => hit.sessionId !== archSession.id)
+    )
+
+    const restored = sessions.archiveSession(archSession.id, false)
+    check(
+      '恢复后回到主列表且位置未变',
+      restored.archivedAt === null &&
+        restored.updatedAt === beforeArchive.updatedAt &&
+        sessions.listSessions().some((item) => item.id === archSession.id),
+      restored
+    )
+    check(
+      '恢复后搜索重新命中',
+      searchConversations('灯塔').some((hit) => hit.sessionId === archSession.id)
+    )
+
+    console.log('\n[15] 日志脱敏')
     check('sk- 开头的密钥被抹掉', scrubLogValue('key=sk-abcdef1234567890') === 'key=sk-***', scrubLogValue('key=sk-abcdef1234567890'))
     check(
       'Authorization Bearer 被抹掉',

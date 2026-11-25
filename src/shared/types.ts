@@ -237,7 +237,8 @@ export interface AppApi {
   }
 
   session: {
-    list(): Promise<Result<SessionSummary[]>>
+    /** includeArchived 默认 false：主列表只要未归档会话（docs/02 §4.1） */
+    list(input?: { includeArchived?: boolean }): Promise<Result<SessionSummary[]>>
     create(input?: {
       modelId?: string | null
       thinking?: boolean | null
@@ -245,6 +246,8 @@ export interface AppApi {
     rename(id: string, title: string): Promise<Result<SessionSummary>>
     update(id: string, patch: SessionPatch): Promise<Result<SessionSummary>>
     remove(id: string): Promise<Result<{ id: string }>>
+    /** 归档只写 archived_at，不删数据，也不改 updated_at */
+    archive(id: string, archived: boolean): Promise<Result<SessionSummary>>
   }
 
   message: {

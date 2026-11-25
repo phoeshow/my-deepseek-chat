@@ -524,7 +524,76 @@ await sleep(1500)
 check('切回第 2 / 2 版', (await versionLabel()) === '版本 2 / 2', await versionLabel())
 check('内容回到新回答', (await lastReply()) === secondReply)
 
-console.log('\n[18] 关闭按钮')
+console.log('\n[18] 会话归档')
+// 用新建会话验证：先改名，便于在列表与弹层里精确定位
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('新对话'))?.click()`
+)
+await sleep(700)
+await evaluate(
+  `document.querySelector('nav ul li button[title="双击重命名"]')?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`
+)
+await sleep(300)
+await evaluate(`document.querySelector('input[aria-label="重命名会话"]')?.select()`)
+await client.send('Input.insertText', { text: '归档目标' })
+await sleep(150)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+await sleep(700)
+check('归档前会话在主列表', (await bodyText()).includes('归档目标'))
+
+// ⋯ 菜单只在 hover 时显示，程序化 click 不受可见性影响
+await evaluate(`(() => {
+  const row = [...document.querySelectorAll('nav ul li')].find((li) => li.innerText.includes('归档目标'))
+  row?.querySelector('button[aria-label="会话操作"]')?.click()
+  return true
+})()`)
+await sleep(300)
+await evaluate(
+  `[...document.querySelectorAll('[role="menu"] button')].find((b) => b.textContent.trim() === '归档')?.click()`
+)
+await sleep(800)
+
+const navText = () => evaluate(`document.querySelector('nav')?.innerText ?? ''`)
+check('归档后主列表不再显示', !(await navText()).includes('归档目标'))
+check(
+  '左栏「已归档」计数变为 1',
+  await evaluate(`document.querySelector('[aria-label="已归档"]')?.textContent.includes('1') === true`)
+)
+
+await evaluate(`document.querySelector('[aria-label="已归档"]')?.click()`)
+await sleep(500)
+check('弹层列出已归档会话', (await bodyText()).includes('归档目标'))
+
+await client.send('Page.reload')
+await sleep(2500)
+check('重载后仍不在主列表（已落库）', !(await navText()).includes('归档目标'))
+await evaluate(`document.querySelector('[aria-label="已归档"]')?.click()`)
+await sleep(500)
+check('重载后弹层仍能列出', (await bodyText()).includes('归档目标'))
+
+await evaluate(
+  `[...document.querySelectorAll('[aria-label="已归档会话"] button')].find((b) => b.textContent.trim() === '恢复')?.click()`
+)
+await sleep(900)
+check('恢复后回到主列表', (await bodyText()).includes('归档目标'))
+check(
+  '弹层变成空态',
+  (await evaluate(`document.querySelector('[aria-label="已归档会话"]')?.innerText ?? ''`)).includes(
+    '还没有归档的会话'
+  )
+)
+await evaluate(`document.querySelector('[aria-label="关闭已归档"]')?.click()`)
+await sleep(400)
+
+console.log('\n[19] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

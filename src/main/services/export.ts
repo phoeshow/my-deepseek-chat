@@ -40,7 +40,8 @@ export async function exportSession(
 }
 
 export async function exportAll(win: BrowserWindow | null): Promise<ExportResult> {
-  const sessions = listSessions()
+  // 归档是“收起”不是“删除”：全量导出必须包含，否则用户会以为数据丢了（ADR-24）
+  const sessions = listSessions(true)
   const payload = sessions.map((session) => ({
     session,
     messages: getThread(session.id, session.activeLeafId)
