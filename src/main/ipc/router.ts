@@ -60,8 +60,7 @@ export function registerIpc(ctx: RouterContext): void {
           .object({
             sidebarWidth: z.number().int().min(160).max(500).optional(),
             panelWidth: z.number().int().min(200).max(600).optional(),
-            sidebarCollapsed: z.boolean().optional(),
-            panelCollapsed: z.boolean().optional()
+            sidebarCollapsed: z.boolean().optional()
           })
           .optional()
       })

@@ -15,7 +15,8 @@ export function ChatView(): React.JSX.Element {
   const error = useChat((state) => state.error)
   const setError = useChat((state) => state.setError)
   const recovered = useChat((state) => state.boot?.recoveredMessages ?? 0)
-  const panelCollapsed = useChat((state) => state.boot?.config.window.panelCollapsed ?? false)
+  const panelOpen = useChat((state) => state.panelOpen)
+  const setPanelOpen = useChat((state) => state.setPanelOpen)
   const sidebarCollapsed = useChat((state) => state.boot?.config.window.sidebarCollapsed ?? false)
   const patchConfig = useChat((state) => state.patchConfig)
   const setDraft = useChat((state) => state.setDraft)
@@ -76,10 +77,10 @@ export function ChatView(): React.JSX.Element {
           {session?.title ?? '新对话'}
         </span>
         <SessionMenu />
-        {panelCollapsed && (
+        {!panelOpen && (
           <button
             type="button"
-            onClick={() => void patchConfig({ window: { panelCollapsed: false } })}
+            onClick={() => setPanelOpen(true)}
             className="rounded px-1.5 py-1 text-fg-subtle hover:text-fg"
             aria-label="展开参数面板"
             title="展开参数面板"

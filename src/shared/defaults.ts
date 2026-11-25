@@ -19,8 +19,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     maximized: false,
     sidebarWidth: 240,
     panelWidth: 280,
-    sidebarCollapsed: false,
-    panelCollapsed: false
+    sidebarCollapsed: false
   }
 }
 

@@ -28,7 +28,7 @@ root.mkdir(parents=True)
     "defaultThinking": True, "defaultEffort": "high", "theme": "dark", "autoTitle": True,
     "window": {"width": 1180, "height": 800, "x": 120, "y": 90, "maximized": False,
                "sidebarWidth": 240, "panelWidth": 280,
-               "sidebarCollapsed": False, "panelCollapsed": False}
+               "sidebarCollapsed": False}
 }, indent=2) + "\n", encoding="utf-8")
 # secret.json 的明文分支是 SecretService 支持的降级路径，用它绕过对系统密钥链的依赖
 (root / 'secret.json').write_text(json.dumps({"plain": "sk-e2e-test"}) + "\n", encoding="utf-8")

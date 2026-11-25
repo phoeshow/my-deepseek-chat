@@ -43,6 +43,12 @@ interface ChatStore {
   /** 输入框草稿：空态里的示例卡片需要往里填内容，所以放在 store 而不是组件内部 */
   draft: string
   setDraft: (draft: string) => void
+  /**
+   * 右栏参数面板是否展开。刻意**不持久化**：
+   * 参数面板是可选内容，每次启动都收起，把宽度让给对话区。
+   */
+  panelOpen: boolean
+  setPanelOpen: (open: boolean) => void
   /** 一次性提示（导出结果等），由 Toast 组件展示 */
   notice: string | null
   showNotice: (text: string) => void
@@ -125,9 +131,11 @@ export const useChat = create<ChatStore>((set, get) => ({
   run: null,
   error: null,
   draft: '',
+  panelOpen: false,
   notice: null,
 
   setDraft: (draft) => set({ draft }),
+  setPanelOpen: (open) => set({ panelOpen: open }),
   showNotice: (text) => set({ notice: text }),
   clearNotice: () => set({ notice: null }),
 

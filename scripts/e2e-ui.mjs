@@ -242,6 +242,10 @@ check(
 )
 
 console.log('\n[8] 参数面板与预算条')
+// 参数面板默认收起（每次启动都关闭），先点开
+check('启动时参数面板是收起的', await evaluate(`!document.querySelector('#temperature')`))
+await evaluate(`document.querySelector('[aria-label="展开参数面板"]')?.click()`)
+await sleep(600)
 check('右栏参数面板存在', (await bodyText()).includes('参数'))
 check('温度控件存在', await evaluate(`Boolean(document.querySelector('#temperature'))`))
 check('上下文预算已渲染', (await bodyText()).includes('上下文'))

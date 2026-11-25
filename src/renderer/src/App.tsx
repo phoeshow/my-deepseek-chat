@@ -31,7 +31,7 @@ export function App(): React.JSX.Element {
   const [quickOpen, setQuickOpen] = useState(false)
 
   const sidebarCollapsed = boot?.config.window.sidebarCollapsed ?? false
-  const panelCollapsed = boot?.config.window.panelCollapsed ?? false
+  const panelOpen = useChat((state) => state.panelOpen)
 
   // 拖拽期间只改本地状态，松手才写配置，避免每帧一次磁盘写入
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR.default)
@@ -175,7 +175,7 @@ export function App(): React.JSX.Element {
 
         <ChatView />
 
-        {!panelCollapsed && (
+        {panelOpen && (
           <>
             <Resizer
               side="right"

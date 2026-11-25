@@ -18,8 +18,7 @@ const windowStateSchema = z.object({
   maximized: z.boolean(),
   sidebarWidth: z.number().int().min(160).max(500),
   panelWidth: z.number().int().min(200).max(600),
-  sidebarCollapsed: z.boolean(),
-  panelCollapsed: z.boolean()
+  sidebarCollapsed: z.boolean()
 })
 
 const configSchema = z.object({

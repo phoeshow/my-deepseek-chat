@@ -14,7 +14,7 @@ export function ParamPanel({ width }: { width: number }): React.JSX.Element | nu
   const models = useChat((state) => state.models)
   const messages = useChat((state) => state.messages)
   const updateSession = useChat((state) => state.updateSession)
-  const patchConfig = useChat((state) => state.patchConfig)
+  const setPanelOpen = useChat((state) => state.setPanelOpen)
 
   const [temperature, setTemperature] = useState(session?.temperature ?? 1)
   const [maxTokens, setMaxTokens] = useState(session?.maxTokens ? String(session.maxTokens) : '')
@@ -58,7 +58,7 @@ export function ParamPanel({ width }: { width: number }): React.JSX.Element | nu
         <span className="text-ui font-semibold text-fg-muted">参数</span>
         <button
           type="button"
-          onClick={() => void patchConfig({ window: { panelCollapsed: true } })}
+          onClick={() => setPanelOpen(false)}
           className="rounded px-1.5 text-fg-subtle hover:text-fg"
           aria-label="折叠参数面板"
           title="折叠参数面板"

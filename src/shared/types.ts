@@ -130,7 +130,6 @@ export interface WindowState {
   sidebarWidth: number
   panelWidth: number
   sidebarCollapsed: boolean
-  panelCollapsed: boolean
 }
 
 /** 设置补丁：只允许改动这些键，避免渲染层顺手改掉不该改的东西 */
