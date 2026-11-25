@@ -61,6 +61,40 @@ export interface SessionSummary {
   messageCount: number
 }
 
+/** 用量统计的时间范围（趋势图固定近 7 天，不受此影响） */
+export type UsageRange = 'today' | '7d' | 'all'
+
+export interface UsageTotals {
+  requests: number
+  promptTokens: number
+  completionTokens: number
+  reasoningTokens: number
+  cacheHitTokens: number
+  cacheMissTokens: number
+  avgFirstTokenMs: number | null
+  avgDurationMs: number | null
+}
+
+export interface UsageByModel {
+  modelId: string
+  requests: number
+  prompt: number
+  completion: number
+  reasoning: number
+  cacheHit: number
+  cacheMiss: number
+  avgFirstToken: number | null
+}
+
+export interface UsageSummary {
+  range: UsageRange
+  totals: UsageTotals
+  /** 近 7 天，按本地日期升序 */
+  daily: { day: string; tokens: number }[]
+  byModel: UsageByModel[]
+  topSessions: { sessionId: string; title: string; requests: number; tokens: number }[]
+}
+
 /** 搜索命中项，与 src/main/db/repo/search.ts 的返回结构一一对应 */
 export interface MessageHit {
   kind: 'message'
@@ -213,6 +247,10 @@ export interface AppApi {
 
   message: {
     thread(sessionId: string, leafId?: string | null): Promise<Result<ChatMessage[]>>
+  }
+
+  usage: {
+    summary(range: UsageRange): Promise<Result<UsageSummary>>
   }
 
   search: {

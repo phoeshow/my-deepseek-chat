@@ -50,6 +50,9 @@ interface ChatStore {
    */
   panelOpen: boolean
   setPanelOpen: (open: boolean) => void
+  /** 中栏显示对话还是用量仪表盘 */
+  view: 'chat' | 'usage'
+  setView: (view: 'chat' | 'usage') => void
   /** 搜索状态：query 非空时左栏切换为结果列表 */
   searchQuery: string
   searchResults: SearchHit[]
@@ -151,6 +154,7 @@ export const useChat = create<ChatStore>((set, get) => ({
   error: null,
   draft: '',
   panelOpen: false,
+  view: 'chat',
   searchQuery: '',
   searchResults: [],
   searching: false,
@@ -160,6 +164,7 @@ export const useChat = create<ChatStore>((set, get) => ({
 
   setDraft: (draft) => set({ draft }),
   setPanelOpen: (open) => set({ panelOpen: open }),
+  setView: (view) => set({ view }),
 
   setSearchQuery: (query) => {
     set({ searchQuery: query })

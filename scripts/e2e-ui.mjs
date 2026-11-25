@@ -444,7 +444,30 @@ check(
   (await evaluate(`document.querySelector('input[aria-label="搜索会话与消息"]').value`)) === ''
 )
 
-console.log('\n[16] 关闭按钮')
+console.log('\n[16] 用量视图')
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '用量')?.click()`
+)
+check('用量视图打开', await waitForText('近 7 天 tokens', 8000))
+check('三张卡片渲染', (await bodyText()).includes('请求数'))
+check('模型聚合表存在', await evaluate(`Boolean(document.querySelector('main table'))`))
+
+await evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '今日')?.click()`)
+await sleep(600)
+check(
+  '可切换到「今日」范围',
+  await evaluate(
+    `[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === '今日' && b.getAttribute('aria-pressed') === 'true')`
+  )
+)
+
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '返回对话')?.click()`
+)
+await sleep(600)
+check('返回对话视图', await evaluate(`Boolean(document.querySelector('textarea'))`))
+
+console.log('\n[17] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

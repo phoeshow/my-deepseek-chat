@@ -8,6 +8,7 @@ import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { TitleBar } from './components/TitleBar'
 import { Toast } from './components/Toast'
+import { UsageView } from './components/UsageView'
 
 /** 分栏宽度边界（docs/04 §2） */
 const SIDEBAR = { default: 240, min: 200, max: 320 }
@@ -28,6 +29,7 @@ export function App(): React.JSX.Element {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const focusSearch = useChat((state) => state.focusSearch)
+  const view = useChat((state) => state.view)
 
   const sidebarCollapsed = boot?.config.window.sidebarCollapsed ?? false
   const panelOpen = useChat((state) => state.panelOpen)
@@ -174,7 +176,7 @@ export function App(): React.JSX.Element {
           </>
         )}
 
-        <ChatView />
+        {view === 'chat' ? <ChatView /> : <UsageView />}
 
         {panelOpen && (
           <>

@@ -35,6 +35,10 @@ const api: AppApi = {
     thread: (sessionId, leafId) => invoke('message:thread', { sessionId, leafId: leafId ?? null })
   },
 
+  usage: {
+    summary: (range) => invoke('usage:summary', { range })
+  },
+
   search: {
     query: (query) => invoke('search:messages', { query })
   },

@@ -21,6 +21,8 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
   const patchConfig = useChat((state) => state.patchConfig)
 
   const searchActive = useChat((state) => state.searchQuery.trim().length > 0)
+  const view = useChat((state) => state.view)
+  const setView = useChat((state) => state.setView)
   const [confirming, setConfirming] = useState<string | null>(null)
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -171,7 +173,21 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
         )}
       </nav>
 
-      <div className="border-t border-line px-3 py-2">
+      <div className="space-y-0.5 border-t border-line px-3 py-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (view === 'usage') setView('chat')
+            else setView('usage')
+          }}
+          aria-pressed={view === 'usage'}
+          className={`w-full rounded-sm px-3 py-2 text-left text-ui hover:bg-surface-hover hover:text-fg ${
+            view === 'usage' ? 'bg-accent-subtle text-fg' : 'text-fg-muted'
+          }`}
+        >
+          <FontAwesomeIcon icon={Icon.usage} className="mr-2 text-[11px]" />
+          用量
+        </button>
         <button
           type="button"
           onClick={onOpenSettings}

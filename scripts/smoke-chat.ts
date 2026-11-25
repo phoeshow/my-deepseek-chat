@@ -8,6 +8,7 @@ import { abort, regenerate, send, setFrameSink } from '../src/main/chat/service'
 import { closeDatabase, getDb, initDatabase, recoveredMessageCount } from '../src/main/db'
 import * as messagesRepo from '../src/main/db/repo/message'
 import { searchConversations } from '../src/main/db/repo/search'
+import { usageSummary } from '../src/main/db/repo/usage'
 import { countSiblings, getThread } from '../src/main/db/repo/message'
 import * as sessions from '../src/main/db/repo/session'
 import { scrubLogValue } from '../src/main/logger'
@@ -317,7 +318,31 @@ async function main(): Promise<void> {
     check('无匹配时返回空数组', searchConversations('绝对不存在的词组xyz').length === 0)
     check('空查询直接返回空', searchConversations('   ').length === 0)
 
-    console.log('\n[12] 日志脱敏')
+    console.log('\n[12] 用量聚合')
+    const weekUsage = usageSummary('7d')
+    const logCount = (getDb().prepare('SELECT COUNT(*) AS c FROM usage_log').get() as { c: number }).c
+    check('请求数与 usage_log 行数一致', weekUsage.totals.requests === logCount, {
+      weekUsage: weekUsage.totals.requests,
+      logCount
+    })
+    check('趋势固定 7 项', weekUsage.daily.length === 7, weekUsage.daily.length)
+    check('按模型聚合有数据', weekUsage.byModel.length > 0, weekUsage.byModel.map((m) => m.modelId))
+    check('会话 Top 不超过 5 条', weekUsage.topSessions.length <= 5, weekUsage.topSessions.length)
+    check(
+      '缓存命中 token 累计大于 0',
+      weekUsage.totals.cacheHitTokens > 0,
+      weekUsage.totals.cacheHitTokens
+    )
+    check(
+      '全部范围不少于 7 天范围',
+      usageSummary('all').totals.requests >= weekUsage.totals.requests
+    )
+    check(
+      '今日范围不超过 7 天范围',
+      usageSummary('today').totals.requests <= weekUsage.totals.requests
+    )
+
+    console.log('\n[13] 日志脱敏')
     check('sk- 开头的密钥被抹掉', scrubLogValue('key=sk-abcdef1234567890') === 'key=sk-***', scrubLogValue('key=sk-abcdef1234567890'))
     check(
       'Authorization Bearer 被抹掉',

@@ -6,6 +6,7 @@ import type { AppErrorCode, BootstrapInfo, Result } from '@shared/types'
 import { closeDatabase, initDatabase, recoveredMessageCount } from '../db'
 import { countSessions } from '../db/repo/session'
 import * as messages from '../db/repo/message'
+import { usageSummary } from '../db/repo/usage'
 import { searchConversations } from '../db/repo/search'
 import * as sessions from '../db/repo/session'
 import * as chat from '../chat/service'
@@ -194,6 +195,11 @@ export function registerIpc(ctx: RouterContext): void {
     chat.regenerate(input.assistantMessageId)
   )
 
+  // ---- 用量统计（v1.1 仪表盘）----
+  handle('usage:summary', z.object({ range: z.enum(['today', '7d', 'all']) }), (input) =>
+    usageSummary(input.range)
+  )
+
   // ---- 搜索（v1.1，FTS5 索引见迁移 002_add_fts）----
   handle('search:messages', z.object({ query: z.string().max(200) }), (input) =>
     searchConversations(input.query)
@@ -285,7 +291,7 @@ export function registerIpc(ctx: RouterContext): void {
     return win ? readUiState(win) : { maximized: false, focused: false }
   })
 
-  logger.info('[ipc] registered 26 channels')
+  logger.info('[ipc] registered 27 channels')
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   faAnglesRight,
   faAsterisk,
   faBars,
+  faChartSimple,
   faCheck,
   faChevronDown,
   faChevronRight,
@@ -57,6 +58,8 @@ export const Icon = {
   // 选择态
   check: faCheck,
   chevronDown: faChevronDown,
+  // 用量
+  usage: faChartSimple,
   // 搜索
   search: faMagnifyingGlass,
   searchClear: faXmark,
