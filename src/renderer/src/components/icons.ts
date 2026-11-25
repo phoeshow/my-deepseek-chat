@@ -4,6 +4,7 @@ import {
   faAnglesLeft,
   faMagnifyingGlass,
   faPen,
+  faPenToSquare,
   faAnglesRight,
   faAsterisk,
   faBars,
@@ -61,6 +62,7 @@ export const Icon = {
   copy: faCopy,
   copied: faCheck,
   edit: faPen,
+  markdownEditor: faPenToSquare,
   regenerate: faRotateRight,
   // 选择态
   check: faCheck,

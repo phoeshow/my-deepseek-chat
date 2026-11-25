@@ -47,7 +47,7 @@ pnpm dev              # 开发模式（HMR）
 pnpm typecheck        # 类型检查
 pnpm test:migrations  # 迁移测试（20 项）
 pnpm smoke            # 主进程冒烟（88 项）
-pnpm e2e:ui           # UI 端到端（85 项，CDP 驱动真实键盘事件）
+pnpm e2e:ui           # UI 端到端（94 项，CDP 驱动真实键盘事件）
 pnpm clean            # 清空 tmp/ 与 release/（--tmp-only / --release-only 可分开清）
 ```
 
@@ -57,4 +57,4 @@ pnpm clean            # 清空 tmp/ 与 release/（--tmp-only / --release-only �
 
 ## 后续
 
-v1.1 backlog 见 [docs/05-路线图](./docs/05-路线图.md) §3：搜索 / 版本切换 / 用量 / 会话归档 / 编辑消息分叉已交付；下一步是系统提示词预设库与多 provider 选择器。
+v1.1 backlog 见 [docs/05-路线图](./docs/05-路线图.md) §3：搜索 / 版本切换 / 用量 / 会话归档 / 编辑消息分叉 / Markdown 大段编辑器已交付；下一步是系统提示词预设库与多 provider 选择器。

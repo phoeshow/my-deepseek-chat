@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { useChat } from '../store/chat'
+import { FontAwesomeIcon, Icon } from './icons'
+import { MarkdownEditorDialog } from './MarkdownEditorDialog'
 import { Switch } from './Switch'
 
 export function Composer(): React.JSX.Element {
@@ -22,6 +24,7 @@ export function Composer(): React.JSX.Element {
    * 发出去之后立刻回到会话/全局生效值，不污染会话设定。
    */
   const [thinkingOverride, setThinkingOverride] = useState<boolean | null>(null)
+  const [editorOpen, setEditorOpen] = useState(false)
   const effectiveThinking = session?.thinking ?? config?.defaultThinking ?? true
   const currentThinking = thinkingOverride ?? effectiveThinking
   const overridden = thinkingOverride !== null && thinkingOverride !== effectiveThinking
@@ -68,6 +71,20 @@ export function Composer(): React.JSX.Element {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }
 
+  /** 编辑器只负责产出文本，回到输入框后仍需用户自己按 Enter 发送（ADR-26） */
+  const applyEditorContent = (value: string): void => {
+    setText(value)
+    setEditorOpen(false)
+    // 等 React 把新值写进 textarea 后再量高度，并焦点归还给输入框
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.style.height = ''
+      el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+      el.focus()
+    })
+  }
+
   return (
     // 输入区独立成带：更深的底色 + 顶部实线，和对话区有明确分界
     <div className="shrink-0 border-t border-line bg-canvas px-6 pb-3 pt-3">
@@ -83,50 +100,71 @@ export function Composer(): React.JSX.Element {
         className="max-h-[200px] w-full resize-none rounded-lg border border-line bg-surface px-3.5 py-2.5 text-body text-fg outline-none transition-colors placeholder:text-fg-subtle focus:border-accent disabled:opacity-60"
       />
 
-      {/* 控件独立一行、靠右：与输入框分离，不挤在输入区域里 */}
-      <div className="mt-2 flex items-center justify-end gap-4">
-        <div className="flex select-none items-center gap-2 text-micro text-fg-muted">
-          {/* 文字只是视觉标签；可访问名称由开关自己的 aria-label 提供 */}
-          <span aria-hidden="true" className={currentThinking ? 'text-fg' : ''}>
-            深度思考
-          </span>
-          <Switch
-            checked={currentThinking}
-            onChange={(next) => setThinkingOverride(next)}
-            label="深度思考"
-            title={
-              overridden
-                ? '深度思考：仅本条生效，发送后恢复会话设定'
-                : '深度思考：跟随会话/全局设定，点击仅对本条生效'
-            }
-          />
+      {/* 控件行：左侧入口、右侧开关与发送键（docs/04 §4.8） */}
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setEditorOpen(true)}
+          aria-label="打开 Markdown 编辑器"
+          title="大段提示词：在独立编辑器中书写 Markdown"
+          className="inline-flex items-center gap-1.5 text-micro text-fg-subtle hover:text-fg"
+        >
+          <FontAwesomeIcon icon={Icon.markdownEditor} className="text-[11px]" />
+          Markdown 编辑器
+        </button>
+
+        <div className="ml-auto flex items-center gap-4">
+          <div className="flex select-none items-center gap-2 text-micro text-fg-muted">
+            {/* 文字只是视觉标签；可访问名称由开关自己的 aria-label 提供 */}
+            <span aria-hidden="true" className={currentThinking ? 'text-fg' : ''}>
+              深度思考
+            </span>
+            <Switch
+              checked={currentThinking}
+              onChange={(next) => setThinkingOverride(next)}
+              label="深度思考"
+              title={
+                overridden
+                  ? '深度思考：仅本条生效，发送后恢复会话设定'
+                  : '深度思考：跟随会话/全局设定，点击仅对本条生效'
+              }
+            />
+          </div>
+
+          {overridden && <span className="text-micro text-accent">仅本条生效</span>}
+
+          {running ? (
+            <button
+              type="button"
+              onClick={() => void abort()}
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-line px-3.5 font-mono text-micro font-semibold leading-none tracking-wide text-fg transition-transform hover:bg-surface-hover active:scale-90"
+              aria-label="停止生成"
+              title="停止生成（Esc）"
+            >
+              停止
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSend}
+              className="btn-send inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-accent px-3.5 font-mono text-micro font-semibold leading-none tracking-wide text-white hover:bg-accent-hover disabled:bg-line disabled:text-fg-subtle"
+              aria-label="发送"
+              title="发送（Enter）"
+            >
+              Enter
+            </button>
+          )}
         </div>
-
-        {overridden && <span className="text-micro text-accent">仅本条生效</span>}
-
-        {running ? (
-          <button
-            type="button"
-            onClick={() => void abort()}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-line px-3.5 font-mono text-micro font-semibold leading-none tracking-wide text-fg transition-transform hover:bg-surface-hover active:scale-90"
-            aria-label="停止生成"
-            title="停止生成（Esc）"
-          >
-            停止
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!canSend}
-            className="btn-send inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-accent px-3.5 font-mono text-micro font-semibold leading-none tracking-wide text-white hover:bg-accent-hover disabled:bg-line disabled:text-fg-subtle"
-            aria-label="发送"
-            title="发送（Enter）"
-          >
-            Enter
-          </button>
-        )}
       </div>
+
+      {editorOpen && (
+        <MarkdownEditorDialog
+          initialValue={text}
+          onApply={applyEditorContent}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
     </div>
   )
 }

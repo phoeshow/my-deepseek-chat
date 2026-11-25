@@ -702,7 +702,104 @@ check(
   !(await evaluate(`Boolean(document.querySelector('textarea[aria-label="编辑消息内容"]'))`))
 )
 
-console.log('\n[20] 关闭按钮')
+console.log('\n[20] Markdown 大段编辑器')
+const messageCount = () => evaluate(`document.querySelectorAll('[id^="msg-"]').length`)
+const messagesBefore = await messageCount()
+
+await evaluate(`document.querySelector('textarea:not([aria-label="Markdown 内容"])')?.focus()`)
+await client.send('Input.insertText', { text: '原始草稿' })
+await sleep(150)
+check(
+  '输入区左下提供编辑器入口',
+  await evaluate(`Boolean(document.querySelector('[aria-label="打开 Markdown 编辑器"]'))`)
+)
+
+await evaluate(`document.querySelector('[aria-label="打开 Markdown 编辑器"]')?.click()`)
+await sleep(500)
+check(
+  '打开后带入当前草稿',
+  (await evaluate(`document.querySelector('textarea[aria-label="Markdown 内容"]')?.value`)) ===
+    '原始草稿'
+)
+
+await evaluate(`document.querySelector('textarea[aria-label="Markdown 内容"]')?.select()`)
+await client.send('Input.insertText', { text: '编辑器内容\n第二行' })
+await sleep(200)
+
+// Esc 不关闭：长文本里误触关闭的代价是整段丢失
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+    nativeVirtualKeyCode: 27
+  })
+}
+await sleep(300)
+check(
+  'Esc 不关闭编辑器',
+  await evaluate(`Boolean(document.querySelector('[role="dialog"][aria-label="Markdown 编辑器"]'))`)
+)
+
+// Enter 不关闭：在 textarea 内只应该换行
+const lengthBeforeEnter = await evaluate(
+  `document.querySelector('textarea[aria-label="Markdown 内容"]')?.value.length ?? 0`
+)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    // 不传 text 的话 CDP 只发键事件，不会真的插入字符；回车用 \r
+    ...(type === 'keyDown' ? { text: '\r', unmodifiedText: '\r' } : {}),
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+await sleep(300)
+check(
+  'Enter 不关闭且仅换行',
+  (await evaluate(
+    `document.querySelector('[role="dialog"][aria-label="Markdown 编辑器"]') !== null && (document.querySelector('textarea[aria-label="Markdown 内容"]')?.value.length ?? 0) === ${lengthBeforeEnter} + 1`
+  )) === true
+)
+
+await evaluate(`document.querySelector('[aria-label="关闭编辑器"]')?.click()`)
+await sleep(400)
+check(
+  '× 关闭后输入框保持原值（本次编辑丢弃）',
+  (await evaluate(`document.querySelector('textarea:not([aria-label="Markdown 内容"])')?.value`)) ===
+    '原始草稿'
+)
+
+await evaluate(`document.querySelector('[aria-label="打开 Markdown 编辑器"]')?.click()`)
+await sleep(400)
+check(
+  '再次打开重新带入输入框原值',
+  (await evaluate(`document.querySelector('textarea[aria-label="Markdown 内容"]')?.value`)) ===
+    '原始草稿'
+)
+
+await evaluate(`document.querySelector('textarea[aria-label="Markdown 内容"]')?.select()`)
+await client.send('Input.insertText', { text: '最终提示词：写一段 Rust 代码' })
+await sleep(200)
+await evaluate(
+  `[...document.querySelectorAll('[role="dialog"][aria-label="Markdown 编辑器"] button')].find((b) => b.textContent.trim() === '使用内容')?.click()`
+)
+await sleep(500)
+check(
+  '使用内容回显到输入框',
+  (await evaluate(`document.querySelector('textarea:not([aria-label="Markdown 内容"])')?.value`)) ===
+    '最终提示词：写一段 Rust 代码'
+)
+check(
+  '回显后编辑器已关闭',
+  !(await evaluate(`Boolean(document.querySelector('[role="dialog"][aria-label="Markdown 编辑器"]'))`))
+)
+check('回显不发送（消息数不变）', (await messageCount()) === messagesBefore)
+
+console.log('\n[21] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {
