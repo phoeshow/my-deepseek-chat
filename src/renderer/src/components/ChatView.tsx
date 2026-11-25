@@ -75,6 +75,7 @@ export function ChatView(): React.JSX.Element {
         <span className="min-w-0 flex-1 truncate text-title font-medium">
           {session?.title ?? '新对话'}
         </span>
+        <SessionMenu />
         {panelCollapsed && (
           <button
             type="button"
@@ -86,7 +87,6 @@ export function ChatView(): React.JSX.Element {
             <FontAwesomeIcon icon={Icon.panelExpand} className="text-[13px]" />
           </button>
         )}
-        <SessionMenu />
       </header>
 
       {showRecovered && (

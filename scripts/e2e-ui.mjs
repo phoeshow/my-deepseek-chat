@@ -247,6 +247,27 @@ check('温度控件存在', await evaluate(`Boolean(document.querySelector('#tem
 check('上下文预算已渲染', (await bodyText()).includes('上下文'))
 check('缓存命中百分比已渲染', /缓存命中\s*\d+%/.test(await bodyText()))
 
+console.log('\n[8b] 折叠后展开入口的位置')
+await evaluate(`document.querySelector('[aria-label="折叠参数面板"]')?.click()`)
+await sleep(500)
+const order = await evaluate(`(() => {
+  const pill = [...document.querySelectorAll('header button')].find((b) => b.textContent.includes('Mock'))
+  const toggle = document.querySelector('[aria-label="展开参数面板"]')
+  if (!pill || !toggle) return null
+  return {
+    pillRight: Math.round(pill.getBoundingClientRect().right),
+    toggleLeft: Math.round(toggle.getBoundingClientRect().left)
+  }
+})()`)
+check(
+  '展开参数面板的入口在模型选择器右侧',
+  Boolean(order) && order.toggleLeft >= order.pillRight - 1,
+  JSON.stringify(order)
+)
+await evaluate(`document.querySelector('[aria-label="展开参数面板"]')?.click()`)
+await sleep(500)
+check('点击后参数面板恢复', await evaluate(`Boolean(document.querySelector('#temperature'))`))
+
 console.log('\n[9] 本条临时思考开关')
 const pressedBefore = await evaluate(
   `document.querySelector('[role="switch"][aria-label="深度思考"]')?.getAttribute('aria-checked')`
