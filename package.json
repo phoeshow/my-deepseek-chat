@@ -12,6 +12,7 @@
     "clean": "node scripts/clean.mjs",
     "dev": "electron-vite dev",
     "dist": "pnpm build && electron-builder --linux AppImage tar.gz",
+    "dist:mac": "pnpm build && electron-builder --mac dmg",
     "dist:dir": "pnpm build && electron-builder --dir",
     "e2e:ui": "bash scripts/run-e2e-ui.sh",
     "mock": "node scripts/mock-deepseek.mjs",

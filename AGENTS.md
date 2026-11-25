@@ -19,7 +19,7 @@
 
 ## 二、当前阶段
 
-- **v1.0 已交付**：M0–M4 全部完成，`pnpm dist` 产出 AppImage + tar.gz 并实测可启动、可迁移
+- **v1.0 已交付**：M0–M4 全部完成，`pnpm dist` 产出 AppImage + tar.gz、`pnpm dist:mac` 产出 macOS dmg，均实测可启动、可迁移
 - **v1.1 增量进行中**（见 `docs/05-路线图.md` §3）：跨会话搜索、消息版本切换、用量仪表盘、会话归档、编辑消息分叉已交付；下一步是「系统提示词预设库」
 - 新功能一律按 §九 推进：先改 docs（新决策在 ADR 表追加一行）→ 再改代码 → 最后自查文档与代码是否一致
 - 每个功能的验收证据记在 `docs/05-路线图.md`（交付表 + §6 验收总表），不要自己另起清单
@@ -68,6 +68,7 @@ pnpm rebuild      # electron-rebuild -f -w better-sqlite3（改原生依赖后�
 pnpm preview      # 用生产产物启动
 pnpm dist         # 打 Linux 产物（AppImage + tar.gz，输出 release/）
                   # 注意：--linux 不带参数只走默认目标，脚本里必须显式列出
+pnpm dist:mac     # 打 macOS 产物（dmg + mac-arm64/*.app，只能在 macOS 上跑）
 pnpm clean        # 清空 tmp/ 与 release/
 pnpm clean --tmp-only       # 只清 tmp/（保留构建产物，便于反复调试）
 pnpm clean --release-only   # 只清构建产物
@@ -92,12 +93,21 @@ pnpm mock         # 单独起 mock DeepSeek（127.0.0.1:8787，Authorization 传
 
 `./tmp/` 在仓库里只提交一个 `.gitignore`，保证 clone 后目录存在、内容永不入库。清理用 `pnpm clean`，不要手动 `rm -rf`（Windows 上没有 rm）。
 
-**两个已踩过的坑（不要再花时间排查）**
+**五个已踩过的坑（不要再花时间排查）**
 
 1. **pnpm 12 的构建脚本白名单键名是 `allowBuilds`**，写在 `pnpm-workspace.yaml`；旧的 `package.json` → `pnpm.onlyBuiltDependencies` 已完全不被读取（只会打 warning）。
 2. **`electron` 的二进制下载脚本可能没被触发**（`node_modules/electron/dist/` 为空、无 `path.txt`）。补救：`node node_modules/electron/install.js`。判断方法：`ls node_modules/electron/path.txt`。
 3. **e2e 的 mock 端口被残留进程占用**时，会连到旧版本 mock，表现成"莫名其妙的前端断言失败"。`scripts/run-e2e-ui.sh` 已加端口占用检查与就绪等待，看到它就先去清理残留进程。
 4. **Vite 大版本必须与 `@vitejs/plugin-react` 对齐**：plugin-react 6.x 要求 Vite 8（用到 `vite/internal` 导出），装成 Vite 7 会在加载配置时报 `ERR_PACKAGE_PATH_NOT_EXPORTED`。
+5. **electron-builder 的 `files` 有两层陷阱**（想裁 better-sqlite3 的跨平台预编译时踩到）：
+   - **node_modules 的 matcher 只取排除项**（源码注释 “grab only excludes”），所以
+     “`!prebuilds/*` + 正向 glob 加回来”**不生效**，会把 `prebuilds/` 整目录丢掉，启动即报
+     `Cannot find module .../prebuilds/darwin-arm64.node`。
+   - **平台级 `mac/linux/win.files` 整个替换通用 `files`，不是追加**；一旦写了平台段又只写排除项，
+     白名单就没了 → electron-builder 会补 `**/*`，把 `src/`、`docs/`、`tmp/` 全塞进 asar
+     （曾经连 `tmp/verify-mac` 这临时 userData 一起进了包）。
+   - 所以：**当前不按平台裁预编译**，只在通用 `files` 里排 `deps/src/build`；
+     改完必须用 `@electron/asar` 列一次 asar 目录 + 真机启动一次（详见 `docs/02` §10）。
 
 ## 七、反模式清单（本项目最容易犯的）
 

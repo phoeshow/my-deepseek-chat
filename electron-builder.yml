@@ -11,6 +11,10 @@ directories:
 files:
   - out/**/*
   - package.json
+  # better-sqlite3 运行时只会 require('prebuilds/<platform>-<arch>.node')（见其 lib/binding.js），
+  # 源码/构建脚本/gyp 文件在打包产物里纯属死重，deps 里的 SQLite 合并源码就有 10MB。
+  - '!node_modules/better-sqlite3/{deps,src,build}/**'
+  - '!node_modules/better-sqlite3/binding.gyp'
 
 # 原生模块必须解包到 asar 之外，否则 Electron 无法 dlopen
 asarUnpack:
