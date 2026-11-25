@@ -17,11 +17,13 @@ export function MessageItem({
   highlighted = false
 }: Props): React.JSX.Element {
   const regenerate = useChat((state) => state.regenerate)
+  const switchVersion = useChat((state) => state.switchVersion)
   const running = useChat((state) => state.run !== null)
   const [copied, setCopied] = useState(false)
 
   const isUser = message.role === 'user'
   const streaming = message.status === 'streaming'
+  const versions = message.versions
 
   const copy = async (): Promise<void> => {
     await navigator.clipboard.writeText(message.content)
@@ -59,6 +61,35 @@ export function MessageItem({
         <div className={isUser ? 'rounded-md bg-bubble px-3.5 py-2.5' : ''}>
           <MarkdownRenderer content={message.content} streaming={streaming} />
         </div>
+
+        {versions && versions.total > 1 && (
+          <div
+            className="mt-1 flex items-center gap-1 text-micro text-fg-subtle"
+            aria-label={`版本 ${versions.index} / ${versions.total}`}
+          >
+            <button
+              type="button"
+              onClick={() => void switchVersion(message.id, 'prev')}
+              disabled={versions.index <= 1 || running}
+              aria-label="上一个版本"
+              className="rounded px-1 hover:text-fg disabled:opacity-30"
+            >
+              <FontAwesomeIcon icon={Icon.chevronLeft} className="text-[9px]" />
+            </button>
+            <span className="font-mono tabular-nums">
+              {versions.index}/{versions.total}
+            </span>
+            <button
+              type="button"
+              onClick={() => void switchVersion(message.id, 'next')}
+              disabled={versions.index >= versions.total || running}
+              aria-label="下一个版本"
+              className="rounded px-1 hover:text-fg disabled:opacity-30"
+            >
+              <FontAwesomeIcon icon={Icon.chevronRight} className="text-[9px]" />
+            </button>
+          </div>
+        )}
 
         {message.status === 'aborted' && !isUser && (
           <p className="mt-1 text-micro text-fg-subtle">

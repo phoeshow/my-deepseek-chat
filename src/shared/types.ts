@@ -41,6 +41,8 @@ export interface ChatMessage {
   finishReason: string | null
   error: { code: AppErrorCode; message: string } | null
   tokens: TokenUsage | null
+  /** 同 parent 下的兄弟版本信息；只有 getThread 会算，写入路径不带 */
+  versions?: { index: number; total: number }
   createdAt: number
   updatedAt: number
 }
@@ -294,6 +296,11 @@ export interface AppApi {
       params: SendParams
     ): Promise<Result<{ requestId: string; userMessageId: string; assistantMessageId: string }>>
     abort(requestId: string): Promise<Result<{ aborted: boolean }>>
+    /** 在同一 parent 下切换兄弟版本，返回新的主线游标 */
+    switchVersion(
+      messageId: string,
+      direction: 'prev' | 'next'
+    ): Promise<Result<{ leafId: string }>>
     regenerate(
       assistantMessageId: string
     ): Promise<Result<{ requestId: string; assistantMessageId: string }>>

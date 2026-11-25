@@ -342,7 +342,58 @@ async function main(): Promise<void> {
       usageSummary('today').totals.requests <= weekUsage.totals.requests
     )
 
-    console.log('\n[13] 日志脱敏')
+    console.log('\n[13] 版本切换')
+    const vSession = sessions.createSession({ modelId: 'mock-flash', thinking: false })
+    const vFirst = await send({ sessionId: vSession.id, parentId: null, text: '版本测试' })
+    await waitForFrame((frame) => frame.requestId === vFirst.requestId && frame.type === 'end')
+    const v1Thread = getThread(vSession.id, sessions.mustGetSession(vSession.id).activeLeafId)
+    const v1Message = v1Thread.at(-1)
+    check('首轮没有版本切换器', v1Message?.versions === undefined, v1Message?.versions)
+
+    const vSecond = await regenerate(v1Message?.id ?? '')
+    await waitForFrame((frame) => frame.requestId === vSecond.requestId && frame.type === 'end')
+    const v2Thread = getThread(vSession.id, sessions.mustGetSession(vSession.id).activeLeafId)
+    const v2Message = v2Thread.at(-1)
+    check(
+      '重新生成后出现 2 个版本且当前是第 2 版',
+      v2Message?.versions?.total === 2 && v2Message.versions.index === 2,
+      v2Message?.versions
+    )
+
+    const toPrev = messagesRepo.switchMessageVersion(v2Message?.id ?? '', 'prev')
+    check('切到上一版返回 changed=true', toPrev.changed)
+    const prevThread = getThread(vSession.id, toPrev.leafId)
+    check(
+      '主线末条变回第 1 版',
+      prevThread.at(-1)?.id === v1Message?.id && prevThread.at(-1)?.versions?.index === 1,
+      prevThread.at(-1)?.versions
+    )
+    check(
+      '第 1 版再往前切不会移动游标',
+      messagesRepo.switchMessageVersion(v1Message?.id ?? '', 'prev').changed === false
+    )
+
+    // 在第二版上继续对话，再切回第一版：游标应停在第一版，而不是带着后续
+    const toNext = messagesRepo.switchMessageVersion(v1Message?.id ?? '', 'next')
+    check('可以切回第 2 版', toNext.changed)
+    const followUp = await send({ sessionId: vSession.id, parentId: null, text: '继续说' })
+    await waitForFrame((frame) => frame.requestId === followUp.requestId && frame.type === 'end')
+    const withFollowUp = getThread(vSession.id, sessions.mustGetSession(vSession.id).activeLeafId)
+    check('第二版分支上有 4 条消息', withFollowUp.length === 4, withFollowUp.length)
+
+    const backToV1 = messagesRepo.switchMessageVersion(v2Message?.id ?? '', 'prev')
+    const v1Branch = getThread(vSession.id, backToV1.leafId)
+    check(
+      '切回第一版后主线只剩 2 条（后续分支被移出主线，未删除）',
+      v1Branch.length === 2,
+      v1Branch.length
+    )
+    check(
+      '被移出主线的消息仍在库里',
+      messagesRepo.getMessage(withFollowUp.at(-1)?.id ?? '') !== null
+    )
+
+    console.log('\n[14] 日志脱敏')
     check('sk- 开头的密钥被抹掉', scrubLogValue('key=sk-abcdef1234567890') === 'key=sk-***', scrubLogValue('key=sk-abcdef1234567890'))
     check(
       'Authorization Bearer 被抹掉',

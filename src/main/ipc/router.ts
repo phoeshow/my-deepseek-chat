@@ -195,6 +195,15 @@ export function registerIpc(ctx: RouterContext): void {
     chat.regenerate(input.assistantMessageId)
   )
 
+  handle(
+    'chat:switch-version',
+    z.object({ messageId: idSchema, direction: z.enum(['prev', 'next']) }),
+    (input) => {
+      const result = messages.switchMessageVersion(input.messageId, input.direction)
+      return { leafId: result.leafId }
+    }
+  )
+
   // ---- 用量统计（v1.1 仪表盘）----
   handle('usage:summary', z.object({ range: z.enum(['today', '7d', 'all']) }), (input) =>
     usageSummary(input.range)
@@ -291,7 +300,7 @@ export function registerIpc(ctx: RouterContext): void {
     return win ? readUiState(win) : { maximized: false, focused: false }
   })
 
-  logger.info('[ipc] registered 27 channels')
+  logger.info('[ipc] registered 28 channels')
 }
 
 /**

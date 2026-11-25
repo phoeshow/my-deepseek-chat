@@ -18,6 +18,9 @@ const CHUNK_DELAY = Number(process.env.MOCK_DELAY ?? 20)
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/** 默认回复带序号：多版本场景下 e2e 需要能区分"这是第几次生成的" */
+let replyCounter = 0
+
 function failingStatus(req) {
   const match = /^Bearer\s+sk-fail-(\d{3})$/.exec(req.headers.authorization ?? '')
   return match ? Number(match[1]) : null
@@ -110,11 +113,12 @@ const server = createServer((req, res) => {
       connection: 'keep-alive'
     })
 
+    replyCounter += 1
     const events = [
       'data: {"choices":[{"delta":{"reasoning_content":"先确认需求。"}}]}\r\n\r\n',
       'data: {"choices":[{"delta":{"reasoning_content":"再组织语言。"}}]}\r\n\r\n',
       'data: {"choices":[{"delta":{"content":"你好"}}]}\r\n\r\n',
-      'data: {"choices":[{"delta":{"content":"，世界。"}}]}\r\n\r\n',
+      `data: {"choices":[{"delta":{"content":"，世界。（第 ${replyCounter} 次）"}}]}\r\n\r\n`,
       'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\r\n\r\n',
       'data: {"choices":[],"usage":{"prompt_tokens":120,"completion_tokens":8,"prompt_cache_hit_tokens":96}}\r\n\r\n',
       'data: [DONE]\r\n\r\n'

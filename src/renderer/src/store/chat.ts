@@ -93,6 +93,7 @@ interface ChatStore {
   send: (text: string, overrides?: SendOverrides) => Promise<void>
   abort: () => Promise<void>
   regenerate: (assistantMessageId: string) => Promise<void>
+  switchVersion: (messageId: string, direction: 'prev' | 'next') => Promise<void>
   applyFrame: (frame: ChatFrame) => void
 }
 
@@ -360,6 +361,18 @@ export const useChat = create<ChatStore>((set, get) => ({
         run: { requestId: result.requestId, sessionId, assistantMessageId: result.assistantMessageId }
       })
       await get().refreshThread()
+    } catch (err) {
+      set({ error: toError(err) })
+    }
+  },
+
+  switchVersion: async (messageId, direction) => {
+    if (get().run) return
+    try {
+      await unwrap(window.api.chat.switchVersion(messageId, direction))
+      // 主线游标已经在主进程改好，重新取一遍线程即可
+      await get().refreshThread()
+      await get().refreshSessions()
     } catch (err) {
       set({ error: toError(err) })
     }

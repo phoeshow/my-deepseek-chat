@@ -46,6 +46,8 @@ const api: AppApi = {
   chat: {
     send: (params) => invoke('chat:send', params),
     abort: (requestId) => invoke('chat:abort', { requestId }),
+    switchVersion: (messageId, direction) =>
+      invoke('chat:switch-version', { messageId, direction }),
     regenerate: (assistantMessageId) => invoke('chat:regenerate', { assistantMessageId }),
     onFrame: (listener) => {
       const wrapped = (_event: unknown, frame: ChatFrame): void => listener(frame)

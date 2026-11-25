@@ -3,6 +3,8 @@ import type { ChatMessage, MessageRole, MessageStatus, TokenUsage } from '@share
 import { getDb } from '../index'
 
 interface MessageRow {
+  sibling_index?: number
+  sibling_total?: number
   id: string
   session_id: string
   parent_id: string | null
@@ -25,6 +27,9 @@ const COLUMNS = `
 
 function toMessage(row: MessageRow): ChatMessage {
   return {
+    ...(row.sibling_total !== undefined && row.sibling_total > 1
+      ? { versions: { index: row.sibling_index ?? 1, total: row.sibling_total } }
+      : {}),
     id: row.id,
     sessionId: row.session_id,
     parentId: row.parent_id,
@@ -133,9 +138,19 @@ export function getThread(sessionId: string, leafId: string | null): ChatMessage
   if (!leafId) {
     const rows = getDb()
       .prepare(
-        `SELECT ${COLUMNS} FROM messages
-         WHERE session_id = ? AND parent_id IS NULL
-         ORDER BY created_at`
+        `SELECT ${COLUMNS},
+              (SELECT COUNT(*) FROM messages sib
+                 WHERE sib.session_id = messages.session_id
+                   AND sib.parent_id IS NULL
+                   AND sib.role = messages.role) AS sibling_total,
+              (SELECT COUNT(*) + 1 FROM messages sib
+                 WHERE sib.session_id = messages.session_id
+                   AND sib.parent_id IS NULL
+                   AND sib.role = messages.role
+                   AND sib.created_at < messages.created_at) AS sibling_index
+       FROM messages
+       WHERE session_id = ? AND parent_id IS NULL
+       ORDER BY created_at`
       )
       .all(sessionId) as MessageRow[]
     return rows.map(toMessage)
@@ -151,7 +166,17 @@ export function getThread(sessionId: string, leafId: string | null): ChatMessage
          SELECT m.id, m.parent_id, t.depth + 1
          FROM messages m JOIN thread t ON m.id = t.parent_id
        )
-       SELECT messages.* FROM messages JOIN thread ON thread.id = messages.id
+       SELECT messages.*,
+              (SELECT COUNT(*) FROM messages sib
+                 WHERE sib.session_id = messages.session_id
+                   AND sib.parent_id IS messages.parent_id
+                   AND sib.role = messages.role) AS sibling_total,
+              (SELECT COUNT(*) + 1 FROM messages sib
+                 WHERE sib.session_id = messages.session_id
+                   AND sib.parent_id IS messages.parent_id
+                   AND sib.role = messages.role
+                   AND sib.created_at < messages.created_at) AS sibling_index
+       FROM messages JOIN thread ON thread.id = messages.id
        ORDER BY thread.depth DESC`
     )
     .all(leafId, sessionId) as MessageRow[]
@@ -168,4 +193,62 @@ export function countSiblings(sessionId: string, parentId: string | null): numbe
     )
     .get(sessionId, parentId) as { count: number } | undefined
   return row?.count ?? 0
+}
+
+export interface VersionSwitchResult {
+  leafId: string
+  changed: boolean
+}
+
+/**
+ * 在同一 parent 下切换 assistant 兄弟版本。
+ *
+ * 只切一条消息是不够的：目标版本可能已经有自己的后续分支，主线游标必须落到
+ * **该分支最新的末端**，否则用户切到旧版本后再发消息会挂到悬空节点上。
+ * 这也意味着切换会把原分支上更靠后的消息移出主线（不删除，只是不再显示）。
+ */
+export function switchMessageVersion(
+  messageId: string,
+  direction: 'prev' | 'next'
+): VersionSwitchResult {
+  const current = getMessage(messageId)
+  if (!current) throw new Error('消息不存在')
+  if (current.role !== 'assistant') throw new Error('只能切换助手消息的版本')
+
+  const db = getDb()
+  const siblings = db
+    .prepare(
+      `SELECT id FROM messages
+       WHERE session_id = ? AND parent_id IS ? AND role = 'assistant'
+       ORDER BY created_at`
+    )
+    .all(current.sessionId, current.parentId) as { id: string }[]
+
+  const index = siblings.findIndex((row) => row.id === messageId)
+  if (index < 0) throw new Error('版本信息已失效')
+
+  const target = siblings[index + (direction === 'next' ? 1 : -1)]
+  if (!target) return { leafId: messageId, changed: false }
+
+  const leafId = deepestNewestLeaf(target.id)
+  db.prepare('UPDATE sessions SET active_leaf_id = ?, updated_at = ? WHERE id = ?').run(
+    leafId,
+    Date.now(),
+    current.sessionId
+  )
+  return { leafId, changed: true }
+}
+
+/** 沿"最新创建的子节点"一路向下，取该分支的末端 */
+function deepestNewestLeaf(startId: string): string {
+  const statement = getDb().prepare(
+    `SELECT id FROM messages WHERE parent_id = ? ORDER BY created_at DESC LIMIT 1`
+  )
+  let leaf = startId
+  for (let guard = 0; guard < 200; guard += 1) {
+    const next = statement.get(leaf) as { id: string } | undefined
+    if (!next) return leaf
+    leaf = next.id
+  }
+  return leaf
 }

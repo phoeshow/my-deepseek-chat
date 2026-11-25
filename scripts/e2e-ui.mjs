@@ -467,7 +467,64 @@ await evaluate(
 await sleep(600)
 check('返回对话视图', await evaluate(`Boolean(document.querySelector('textarea'))`))
 
-console.log('\n[17] 关闭按钮')
+console.log('\n[17] 消息版本切换')
+// 用新会话测：默认回复带序号，能区分不同版本的内容
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('新对话'))?.click()`
+)
+await sleep(600)
+await evaluate(`document.querySelector('textarea').focus()`)
+await client.send('Input.insertText', { text: '版本测试' })
+await sleep(150)
+for (const type of ['keyDown', 'keyUp']) {
+  await client.send('Input.dispatchKeyEvent', {
+    type,
+    key: 'Enter',
+    code: 'Enter',
+    windowsVirtualKeyCode: 13,
+    nativeVirtualKeyCode: 13
+  })
+}
+
+const lastReply = () =>
+  evaluate(`[...document.querySelectorAll('.markdown-body')].at(-1)?.innerText.trim() ?? ''`)
+const versionLabel = () =>
+  evaluate(`document.querySelector('[aria-label^="版本 "]')?.getAttribute('aria-label') ?? ''`)
+
+// "重新生成"按钮只在非流式时渲染，等它出现即代表本轮已完成
+check(
+  '首轮回答已完成',
+  await waitFor(
+    `[...document.querySelectorAll('button')].some((b) => b.textContent.includes('重新生成'))`,
+    15000
+  )
+)
+check('首轮没有版本切换器', (await versionLabel()) === '')
+const firstReply = await lastReply()
+
+await evaluate(
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('重新生成'))?.click()`
+)
+check('重新生成后出现版本切换器', await waitFor(`Boolean(document.querySelector('[aria-label^="版本 "]'))`, 15000))
+check('当前是第 2 / 2 版', (await versionLabel()) === '版本 2 / 2', await versionLabel())
+const secondReply = await lastReply()
+check('两个版本内容不同', secondReply !== firstReply, { firstReply, secondReply })
+
+await evaluate(`document.querySelector('[aria-label="上一个版本"]')?.click()`)
+await sleep(1500)
+check('切到第 1 / 2 版', (await versionLabel()) === '版本 1 / 2', await versionLabel())
+check('内容回退到旧回答', (await lastReply()) === firstReply)
+check(
+  '第 1 版时"上一个版本"被禁用',
+  await evaluate(`document.querySelector('[aria-label="上一个版本"]')?.disabled === true`)
+)
+
+await evaluate(`document.querySelector('[aria-label="下一个版本"]')?.click()`)
+await sleep(1500)
+check('切回第 2 / 2 版', (await versionLabel()) === '版本 2 / 2', await versionLabel())
+check('内容回到新回答', (await lastReply()) === secondReply)
+
+console.log('\n[18] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

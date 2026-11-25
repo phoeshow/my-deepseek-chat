@@ -9,6 +9,7 @@ import {
   faChartSimple,
   faCheck,
   faChevronDown,
+  faChevronLeft,
   faChevronRight,
   faCopy,
   faEllipsis,
@@ -50,6 +51,8 @@ export const Icon = {
   settings: faGear,
   // 消息
   assistant: faAsterisk,
+  chevronLeft: faChevronLeft,
+  chevronRight: faChevronRight,
   reasoningOpen: faChevronDown,
   reasoningClosed: faChevronRight,
   copy: faCopy,
