@@ -2,6 +2,7 @@ import { config } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faAnglesLeft,
+  faMagnifyingGlass,
   faAnglesRight,
   faAsterisk,
   faBars,
@@ -56,6 +57,9 @@ export const Icon = {
   // 选择态
   check: faCheck,
   chevronDown: faChevronDown,
+  // 搜索
+  search: faMagnifyingGlass,
+  searchClear: faXmark,
   // 说明性提示
   info: faCircleInfo
 } as const

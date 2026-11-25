@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { SessionSummary } from '@shared/types'
 import { useChat } from '../store/chat'
 import { FontAwesomeIcon, Icon } from './icons'
+import { SearchResults, SidebarSearch } from './SidebarSearch'
 
 interface Props {
   width: number
@@ -19,6 +20,7 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
   const showNotice = useChat((state) => state.showNotice)
   const patchConfig = useChat((state) => state.patchConfig)
 
+  const searchActive = useChat((state) => state.searchQuery.trim().length > 0)
   const [confirming, setConfirming] = useState<string | null>(null)
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -54,7 +56,9 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
       className="flex shrink-0 flex-col border-r border-line bg-canvas"
       style={{ width }}
     >
-      <div className="flex h-12 shrink-0 items-center justify-between px-3">
+      <SidebarSearch />
+
+      <div className="flex h-9 shrink-0 items-center justify-between px-3">
         <button
           type="button"
           onClick={() => void patchConfig({ window: { sidebarCollapsed: true } })}
@@ -76,10 +80,13 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {sessions.length === 0 && (
+        {/* 搜索进行中时列表区换成结果，骨架（搜索框 / 新建会话）保持不动 */}
+        {searchActive && <SearchResults />}
+        {!searchActive && sessions.length === 0 && (
           <p className="px-3 py-6 text-center text-ui text-fg-subtle">还没有对话</p>
         )}
-        <ul>
+        {!searchActive && (
+          <ul>
           {sessions.map((session) => {
             const active = session.id === activeId
             const isRunning = running?.sessionId === session.id
@@ -88,6 +95,7 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
                 {editingId === session.id ? (
                   <input
                     autoFocus
+                    aria-label="重命名会话"
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     onBlur={() => void commitRename()}
@@ -159,7 +167,8 @@ export function Sidebar({ width, onOpenSettings }: Props): React.JSX.Element {
               </li>
             )
           })}
-        </ul>
+          </ul>
+        )}
       </nav>
 
       <div className="border-t border-line px-3 py-2">

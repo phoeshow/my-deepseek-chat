@@ -20,6 +20,8 @@ export function ChatView(): React.JSX.Element {
   const sidebarCollapsed = useChat((state) => state.boot?.config.window.sidebarCollapsed ?? false)
   const patchConfig = useChat((state) => state.patchConfig)
   const setDraft = useChat((state) => state.setDraft)
+  const highlightId = useChat((state) => state.highlightMessageId)
+  const clearHighlight = useChat((state) => state.clearHighlight)
   const running = useChat((state) => state.run !== null)
   const [showRecovered, setShowRecovered] = useState(recovered > 0)
 
@@ -57,6 +59,25 @@ export function ChatView(): React.JSX.Element {
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [rendered, virtualize, virtualizer])
+
+  /**
+   * 从搜索结果跳转过来时，把目标消息滚到视野中央并短暂高亮。
+   * 依赖 rendered：会话消息是异步加载的，等它到了再定位。
+   */
+  useEffect(() => {
+    if (!highlightId) return
+    const index = rendered.findIndex((item) => item.id === highlightId)
+    if (index < 0) return
+
+    if (virtualize) {
+      virtualizer.scrollToIndex(index, { align: 'center' })
+    } else {
+      document.getElementById(`msg-${highlightId}`)?.scrollIntoView({ block: 'center' })
+    }
+
+    const timer = setTimeout(clearHighlight, 2400)
+    return () => clearTimeout(timer)
+  }, [highlightId, rendered, virtualize, virtualizer, clearHighlight])
 
 
   return (
@@ -143,7 +164,11 @@ export function ChatView(): React.JSX.Element {
                       transform: `translateY(${item.start}px)`
                     }}
                   >
-                    <MessageItem message={message} isLastAssistant={message.id === lastAssistantId} />
+                    <MessageItem
+                      message={message}
+                      isLastAssistant={message.id === lastAssistantId}
+                      highlighted={message.id === highlightId}
+                    />
                   </div>
                 )
               })}
@@ -154,6 +179,7 @@ export function ChatView(): React.JSX.Element {
                 key={message.id}
                 message={message}
                 isLastAssistant={message.id === lastAssistantId}
+                highlighted={message.id === highlightId}
               />
             ))
           )}

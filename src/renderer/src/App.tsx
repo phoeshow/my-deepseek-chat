@@ -3,7 +3,6 @@ import { useChat } from './store/chat'
 import { ChatView } from './components/ChatView'
 import { Onboarding } from './components/Onboarding'
 import { ParamPanel } from './components/ParamPanel'
-import { QuickSwitch } from './components/QuickSwitch'
 import { Resizer } from './components/Resizer'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
@@ -28,7 +27,7 @@ export function App(): React.JSX.Element {
   const running = useChat((state) => state.run !== null)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [quickOpen, setQuickOpen] = useState(false)
+  const focusSearch = useChat((state) => state.focusSearch)
 
   const sidebarCollapsed = boot?.config.window.sidebarCollapsed ?? false
   const panelOpen = useChat((state) => state.panelOpen)
@@ -79,8 +78,9 @@ export function App(): React.JSX.Element {
         return
       }
       if (key === 'k') {
+        // ⌘K 只做一件事：聚焦左栏搜索框（搜索本身就在那里）
         event.preventDefault()
-        setQuickOpen((value) => !value)
+        focusSearch()
         return
       }
       if (key === ',') {
@@ -110,7 +110,8 @@ export function App(): React.JSX.Element {
     patchConfig,
     regenerate,
     running,
-    sidebarCollapsed
+    sidebarCollapsed,
+    focusSearch
   ])
 
   if (!ready || !boot) {
@@ -191,7 +192,6 @@ export function App(): React.JSX.Element {
       </div>
 
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
-      {quickOpen && <QuickSwitch onClose={() => setQuickOpen(false)} />}
       <Toast />
     </div>
   )

@@ -311,9 +311,12 @@ await evaluate(
   `[...document.querySelectorAll('aside button')].find((b) => b.title === '双击重命名')?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`
 )
 await sleep(300)
-check('双击后进入编辑态', await evaluate(`Boolean(document.querySelector('aside input'))`))
+check(
+  '双击后进入编辑态',
+  await evaluate(`Boolean(document.querySelector('input[aria-label="重命名会话"]'))`)
+)
 
-await evaluate(`document.querySelector('aside input')?.select()`)
+await evaluate(`document.querySelector('input[aria-label="重命名会话"]')?.select()`)
 await client.send('Input.insertText', { text: '重命名后的标题' })
 await sleep(200)
 for (const type of ['keyDown', 'keyUp']) {
@@ -395,16 +398,53 @@ check(
 )
 
 await pressKey('k', 2)
-check('Ctrl+K 打开快速切换', await evaluate(`Boolean(document.querySelector('[role="dialog"][aria-label="快速切换会话"]'))`))
+check(
+  'Ctrl+K 聚焦左栏搜索框',
+  await evaluate(`document.activeElement?.getAttribute('aria-label') === '搜索会话与消息'`)
+)
 await pressKey('Escape')
-check('Esc 关闭快速切换', await evaluate(`!document.querySelector('[role="dialog"][aria-label="快速切换会话"]')`))
+check(
+  'Esc 退出搜索',
+  await evaluate(`document.activeElement?.getAttribute('aria-label') !== '搜索会话与消息'`)
+)
 
 await pressKey(',', 2)
 check('Ctrl+, 打开设置', await evaluate(`Boolean(document.querySelector('[role="dialog"][aria-label="设置"]'))`))
 await pressKey('Escape')
 check('Esc 关闭设置', await evaluate(`!document.querySelector('[role="dialog"][aria-label="设置"]')`))
 
-console.log('\n[15] 关闭按钮')
+console.log('\n[15] 左侧搜索')
+await pressKey('k', 2)
+check(
+  '⌘K 聚焦搜索框',
+  await evaluate(
+    `document.activeElement?.getAttribute('aria-label') === '搜索会话与消息'`
+  )
+)
+
+await client.send('Input.insertText', { text: '验证一下' })
+check(
+  '搜索结果列表出现',
+  await waitFor(`Boolean(document.querySelector('ul[aria-label="搜索结果"] li'))`, 8000)
+)
+
+const hitCount = await evaluate(`document.querySelectorAll('ul[aria-label="搜索结果"] li').length`)
+check(`命中项数量合理（${hitCount}）`, hitCount > 0)
+
+await evaluate(`document.querySelector('ul[aria-label="搜索结果"] li button')?.click()`)
+await sleep(900)
+check(
+  '跳转后目标消息被高亮',
+  await evaluate(
+    `Boolean(document.querySelector('[id^="msg-"][class*="bg-accent-subtle"]'))`
+  )
+)
+check(
+  '跳转后搜索框已清空',
+  (await evaluate(`document.querySelector('input[aria-label="搜索会话与消息"]').value`)) === ''
+)
+
+console.log('\n[16] 关闭按钮')
 await evaluate(`document.querySelector('button[aria-label="关闭"]')?.click()`)
 let closed = false
 for (let attempt = 0; attempt < 24; attempt += 1) {

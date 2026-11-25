@@ -7,9 +7,15 @@ import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 interface Props {
   message: ChatMessage
   isLastAssistant: boolean
+  /** 从搜索结果跳转过来时短暂高亮 */
+  highlighted?: boolean
 }
 
-export function MessageItem({ message, isLastAssistant }: Props): React.JSX.Element {
+export function MessageItem({
+  message,
+  isLastAssistant,
+  highlighted = false
+}: Props): React.JSX.Element {
   const regenerate = useChat((state) => state.regenerate)
   const running = useChat((state) => state.run !== null)
   const [copied, setCopied] = useState(false)
@@ -24,7 +30,12 @@ export function MessageItem({ message, isLastAssistant }: Props): React.JSX.Elem
   }
 
   return (
-    <div className={`group py-3 ${isUser ? 'flex justify-end' : ''}`}>
+    <div
+      id={`msg-${message.id}`}
+      className={`group scroll-mt-6 rounded-md py-3 transition-colors ${
+        isUser ? 'flex justify-end' : ''
+      } ${highlighted ? 'bg-accent-subtle/35' : ''}`}
+    >
       <div className={isUser ? 'max-w-[70%]' : 'w-full'}>
         {!isUser && (
           <div className="mb-1 flex items-center gap-2">

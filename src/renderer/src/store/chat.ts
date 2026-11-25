@@ -6,6 +6,7 @@ import type {
   ChatFrame,
   ChatMessage,
   ModelInfo,
+  SearchHit,
   SessionPatch,
   SessionSummary
 } from '@shared/types'
@@ -49,6 +50,20 @@ interface ChatStore {
    */
   panelOpen: boolean
   setPanelOpen: (open: boolean) => void
+  /** 搜索状态：query 非空时左栏切换为结果列表 */
+  searchQuery: string
+  searchResults: SearchHit[]
+  searching: boolean
+  /** 自增计数：⌘K 触发焦点，Sidebar 监听它去 focus 输入框 */
+  searchFocusNonce: number
+  /** 从搜索结果跳转后要高亮的消息 */
+  highlightMessageId: string | null
+  setSearchQuery: (query: string) => void
+  clearSearch: () => void
+  focusSearch: () => void
+  openSearchHit: (hit: SearchHit) => Promise<void>
+  clearHighlight: () => void
+
   /** 一次性提示（导出结果等），由 Toast 组件展示 */
   notice: string | null
   showNotice: (text: string) => void
@@ -85,6 +100,10 @@ interface ChatStore {
  */
 const buffer = new Map<string, { text: string; reasoning: string }>()
 let rafHandle = 0
+
+/** 搜索防抖定时器与请求序号（序号用于丢弃过期响应） */
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+let searchSeq = 0
 
 function pushDelta(messageId: string, channel: 'text' | 'reasoning', delta: string): void {
   const entry = buffer.get(messageId) ?? { text: '', reasoning: '' }
@@ -132,10 +151,60 @@ export const useChat = create<ChatStore>((set, get) => ({
   error: null,
   draft: '',
   panelOpen: false,
+  searchQuery: '',
+  searchResults: [],
+  searching: false,
+  searchFocusNonce: 0,
+  highlightMessageId: null,
   notice: null,
 
   setDraft: (draft) => set({ draft }),
   setPanelOpen: (open) => set({ panelOpen: open }),
+
+  setSearchQuery: (query) => {
+    set({ searchQuery: query })
+    if (searchTimer) clearTimeout(searchTimer)
+
+    const trimmed = query.trim()
+    if (!trimmed) {
+      set({ searchResults: [], searching: false })
+      return
+    }
+
+    set({ searching: true })
+    // 输入过程中不逐字符打库：180ms 静默后再查
+    searchTimer = setTimeout(() => {
+      const seq = ++searchSeq
+      void window.api.search
+        .query(trimmed)
+        .then((result) => {
+          if (seq !== searchSeq) return
+          set({ searchResults: result.ok ? result.data : [], searching: false })
+        })
+        .catch(() => {
+          if (seq === searchSeq) set({ searchResults: [], searching: false })
+        })
+    }, 180)
+  },
+
+  clearSearch: () => {
+    if (searchTimer) clearTimeout(searchTimer)
+    set({ searchQuery: '', searchResults: [], searching: false })
+  },
+
+  focusSearch: () => set((state) => ({ searchFocusNonce: state.searchFocusNonce + 1 })),
+
+  openSearchHit: async (hit) => {
+    await get().selectSession(hit.sessionId)
+    set({
+      searchQuery: '',
+      searchResults: [],
+      searching: false,
+      highlightMessageId: hit.kind === 'message' ? hit.messageId : null
+    })
+  },
+
+  clearHighlight: () => set({ highlightMessageId: null }),
   showNotice: (text) => set({ notice: text }),
   clearNotice: () => set({ notice: null }),
 

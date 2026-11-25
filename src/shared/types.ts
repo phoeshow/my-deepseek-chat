@@ -61,6 +61,27 @@ export interface SessionSummary {
   messageCount: number
 }
 
+/** 搜索命中项，与 src/main/db/repo/search.ts 的返回结构一一对应 */
+export interface MessageHit {
+  kind: 'message'
+  sessionId: string
+  sessionTitle: string
+  messageId: string
+  role: string
+  /** 片段中命中处用 \u0001…\u0002 包裹，渲染层据此高亮 */
+  snippet: string
+  createdAt: number
+}
+
+export interface SessionHit {
+  kind: 'session'
+  sessionId: string
+  sessionTitle: string
+  updatedAt: number
+}
+
+export type SearchHit = MessageHit | SessionHit
+
 /** 会话级设定补丁。字段传 null 表示"回退到全局默认" */
 export interface SessionPatch {
   modelId?: string | null
@@ -192,6 +213,11 @@ export interface AppApi {
 
   message: {
     thread(sessionId: string, leafId?: string | null): Promise<Result<ChatMessage[]>>
+  }
+
+  search: {
+    /** 跨会话全文搜索：标题命中 + 消息命中（含思维链） */
+    query(query: string): Promise<Result<SearchHit[]>>
   }
 
   settings: {

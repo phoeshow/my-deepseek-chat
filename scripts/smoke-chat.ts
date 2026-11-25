@@ -7,6 +7,7 @@ import type { ChatFrame } from '../src/shared/types'
 import { abort, regenerate, send, setFrameSink } from '../src/main/chat/service'
 import { closeDatabase, getDb, initDatabase, recoveredMessageCount } from '../src/main/db'
 import * as messagesRepo from '../src/main/db/repo/message'
+import { searchConversations } from '../src/main/db/repo/search'
 import { countSiblings, getThread } from '../src/main/db/repo/message'
 import * as sessions from '../src/main/db/repo/session'
 import { scrubLogValue } from '../src/main/logger'
@@ -283,7 +284,40 @@ async function main(): Promise<void> {
     check('JSON 不含 baseUrl', !/baseUrl/.test(json))
     check('文件名过滤非法字符', safeFileName('a/b:c*d?"<>|') === 'a_b_c_d_____', safeFileName('a/b:c*d?"<>|'))
 
-    console.log('\n[11] 日志脱敏')
+    console.log('\n[11] 全文搜索')
+    const contentHit = searchConversations('你好，世')
+    const messageHit = contentHit.find((item) => item.kind === 'message')
+    check('按正文命中消息', Boolean(messageHit), contentHit.length)
+    check(
+      '片段带高亮标记',
+      messageHit?.kind === 'message' && messageHit.snippet.includes('\u0001'),
+      messageHit?.kind === 'message' ? messageHit.snippet : null
+    )
+    check(
+      '命中项带回会话标题',
+      messageHit?.kind === 'message' && messageHit.sessionTitle.length > 0,
+      messageHit?.kind === 'message' ? messageHit.sessionTitle : null
+    )
+
+    const reasoningHits = searchConversations('先确认')
+    check(
+      '思维链也能被搜到（验证 FTS 索引含 reasoning 列）',
+      reasoningHits.some((item) => item.kind === 'message'),
+      reasoningHits.length
+    )
+
+    const shortQuery = searchConversations('你好')
+    check('不足 3 字符走 LIKE 兜底', shortQuery.length > 0, shortQuery.length)
+    check(
+      '短查询能命中会话标题',
+      shortQuery.some((item) => item.kind === 'session'),
+      shortQuery.map((item) => item.kind)
+    )
+
+    check('无匹配时返回空数组', searchConversations('绝对不存在的词组xyz').length === 0)
+    check('空查询直接返回空', searchConversations('   ').length === 0)
+
+    console.log('\n[12] 日志脱敏')
     check('sk- 开头的密钥被抹掉', scrubLogValue('key=sk-abcdef1234567890') === 'key=sk-***', scrubLogValue('key=sk-abcdef1234567890'))
     check(
       'Authorization Bearer 被抹掉',

@@ -35,6 +35,10 @@ const api: AppApi = {
     thread: (sessionId, leafId) => invoke('message:thread', { sessionId, leafId: leafId ?? null })
   },
 
+  search: {
+    query: (query) => invoke('search:messages', { query })
+  },
+
   chat: {
     send: (params) => invoke('chat:send', params),
     abort: (requestId) => invoke('chat:abort', { requestId }),
